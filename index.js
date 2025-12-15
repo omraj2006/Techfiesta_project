@@ -2,9 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const Tesseract = require('tesseract.js');
 const fs = require('fs');
-const sharp = require('sharp'); // New library
-const tf = require('@tensorflow/tfjs');
-const cocoSsd = require('@tensorflow-models/coco-ssd');
 
 const app = express();
 const port = 3000;
@@ -12,84 +9,100 @@ const upload = multer({ dest: 'uploads/' });
 
 app.use(express.json());
 
-let objectModel;
+// --- UNIVERSAL PARSER (Health & Vehicle) ---
+const parseDocumentData = (text) => {
+    let extracted = {};
 
-// Load Model
-(async () => {
-    console.log('Loading Model...');
-    await tf.setBackend('cpu');
-    objectModel = await cocoSsd.load();
-    console.log('Model Loaded!');
-})();
+    // Helper: Clean the OCR result (remove dots, special chars from start/end)
+    const extractPattern = (pattern) => {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+            // Remove dots, colons, hyphens from the start of the captured text
+            return match[1].replace(/^[.:\-\s]+/, '').trim();
+        }
+        return null;
+    };
 
-// Helper: Decode ANY image using Sharp
-const decodeImage = async (filePath) => {
-    // Sharp converts WebP/PNG/JPG -> Raw Pixel Buffer
-    const buffer = await sharp(filePath)
-        .raw() // Get raw pixel data
-        .toBuffer({ resolveWithObject: true });
+    // ==========================================
+    // 1. COMMON FIELDS (Used in both types)
+    // ==========================================
+    
+    // Policy Number (Matches "Policy No", "Certificate No", etc.)
+    // Regex allows alphanumeric, dashes, and slashes (common in policy IDs)
+    extracted.policyNumber = extractPattern(/(?:Policy|Certificate)\s*No[\s\.\-\:]*([A-Za-z0-9\/\-]+)/i);
 
-    const { data, info } = buffer;
+    // Name (Insured / Proposer / Owner)
+    extracted.name = extractPattern(/(?:Name of Insured|Proposer Name|Owner Name|Name)[\s\.\-\:]*([A-Za-z\s\.]+)/i);
 
-    // Create Tensor from raw data
-    return tf.browser.fromPixels({
-        data: new Uint8Array(data),
-        width: info.width,
-        height: info.height
-    }, 3); // 3 channels (RGB)
+    // Dates (Valid From / To)
+    extracted.validFrom = extractPattern(/(?:Valid From|Period From|Commencing Date)[\s\.\-\:]*([\d\/\.\-]+)/i);
+    extracted.validTo = extractPattern(/(?:Valid To|Period To|Expiry Date|Midnight of)[\s\.\-\:]*([\d\/\.\-]+)/i);
+
+    // ==========================================
+    // 2. VEHICLE SPECIFIC FIELDS
+    // ==========================================
+    
+    // Registration Number (Matches "Vehicle No", "Reg No", or typo "vena No")
+    extracted.vehicleRegNo = extractPattern(/(?:Vehicle|Registration|Reg|vena)\s*No[\s\.\-\:]*([A-Za-z0-9]+)/i);
+
+    // Chassis Number
+    extracted.chassisNo = extractPattern(/Chassis\s*No[\s\.\-\:]*([A-Za-z0-9]+)/i);
+
+    // Engine Number
+    extracted.engineNo = extractPattern(/Engine\s*No[\s\.\-\:]*([A-Za-z0-9]+)/i);
+
+    // Make / Model
+    extracted.makeModel = extractPattern(/(?:Make|Model)[\s\.\-\:]*([A-Za-z0-9\s]+)/i);
+
+    // ==========================================
+    // 3. HEALTH / FINANCIAL SPECIFIC FIELDS
+    // ==========================================
+
+    // Sum Insured / IDV (Insured Declared Value)
+    extracted.sumInsured = extractPattern(/(?:Sum\s*Insured|IDV|Total Value)[\s\.\-\:]*([0-9,]+)/i);
+
+    // Member ID (Specific to Health Cards)
+    extracted.memberId = extractPattern(/(?:Member\s*ID|TPA\s*ID|Card\s*No)[\s\.\-\:]*([A-Za-z0-9]+)/i);
+
+    return extracted;
 };
 
+// --- API ROUTE ---
 app.post('/extract-text', upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
     const filePath = req.file.path;
 
     try {
+        console.log(`Processing: ${req.file.originalname}`);
         console.log('--- OCR START ---');
-        // Tesseract handles most formats natively, no change needed
+        
         const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
-        fs.unlinkSync(filePath);
-        res.json({ success: true, type: 'text', data: text.trim() });
-    } catch (error) {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        res.status(500).json({ error: 'OCR failed' });
-    }
-});
-
-app.post('/detect-objects', upload.single('image'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
-    if (!objectModel) return res.status(503).json({ error: 'Model loading...' });
-
-    const filePath = req.file.path;
-
-    try {
-        console.log('--- DETECTING OBJECTS ---');
-
-        // 1. Decode ANY image format
-        const imageTensor = await decodeImage(filePath);
-
-        // 2. Run detection
-        const predictions = await objectModel.detect(imageTensor);
-
-        // 3. Cleanup
-        imageTensor.dispose();
+        
+        // Clean up uploaded file
         fs.unlinkSync(filePath);
 
-        // 4. Send results
-        const detectedObjects = predictions.map(p => ({
-            object: p.class,
-            confidence: (p.score * 100).toFixed(2) + '%'
-        }));
+        // Run the universal parser
+        const data = parseDocumentData(text);
 
-        console.log('Found:', detectedObjects);
-        res.json({ success: true, type: 'objects', data: detectedObjects });
+        // Determine Document Type based on what we found
+        let docType = "Unknown";
+        if (data.vehicleRegNo || data.chassisNo) docType = "Vehicle/RTO";
+        else if (data.memberId || (data.sumInsured && !data.vehicleRegNo)) docType = "Health/General Insurance";
+
+        res.json({ 
+            success: true,
+            detectedType: docType,
+            data: data,
+            // debug_text: text // Uncomment if you need to see raw text again
+        });
 
     } catch (error) {
-        console.error('Detection Error:', error);
+        console.error(error);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        res.status(500).json({ error: 'Detection failed' });
+        res.status(500).json({ error: 'OCR processing failed' });
     }
 });
 
 app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+    console.log(`Universal OCR Server running on http://localhost:${port}`);
 });
