@@ -1,11 +1,6 @@
+🛡️ InsureFlow: Digital Insurance Claim Platform
 
-  # Short-Form Blogging App
+InsureFlow is a digital solution designed to eliminate the frustration of manual insurance claims. By bridging the gap between policyholders and insurers, we make claim filing faster, transparent, and paperless.
 
-  This is a code bundle for Short-Form Blogging App. The original project is available at https://www.figma.com/design/z05VoxJxkF0z60hQ4C2fXj/Short-Form-Blogging-App.
-
-  ## Running the code
-
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+The Problem: Traditional filing is slow, opaque, and error-prone.  
+Our Solution: A unified dashboard for instant submissions, real-time tracking, and automated pre-validation.
