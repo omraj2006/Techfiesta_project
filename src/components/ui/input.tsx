@@ -1,21 +1,44 @@
-import * as React from "react";
+"use client";
 
-import { cn } from "./utils";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+export default function UploadPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [message, setMessage] = useState("");
+
+  const handleUpload = async () => {
+    if (!file) {
+      setMessage("Please select a file first");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("image", file); // MUST match multer field name
+
+    const response = await fetch("http://localhost:3000/uploadImage", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await response.json();
+    setMessage(data.message);
+  };
+
   return (
-    <input
-      type={type}
-      data-slot="input"
-      className={cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base bg-input-background transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className,
-      )}
-      {...props}
-    />
+    <div style={{ maxWidth: 400, margin: "40px auto" }}>
+      <Input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+      />
+
+      <button onClick={handleUpload} style={{ marginTop: 12 }}>
+        Upload Image
+      </button>
+
+      {message && <p>{message}</p>}
+    </div>
   );
 }
-
-export { Input };
