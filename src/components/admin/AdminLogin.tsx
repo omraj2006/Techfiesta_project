@@ -48,7 +48,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
           {/* Error Message */}
           {error && (
             <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="text-destructive flex-shrink-0 mt-0.5" size={20} />
+              <AlertCircle className="text-destructive flex-shrink-0 mt-0.5 " size={20} />
               <p className="text-destructive">{error}</p>
             </div>
           )}
@@ -137,9 +137,11 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
         {/* Footer */}
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>Protected by enterprise-grade security</p>
-          <p className="mt-1">© 2024 SmartClaim. All rights reserved.</p>
+          <p className="mt-1">© 2025 SmartClaim. All rights reserved.</p>
         </div>
       </div>
     </div>
   );
 }
+
+
