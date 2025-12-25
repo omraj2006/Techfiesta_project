@@ -3,9 +3,10 @@ import { Shield, Menu, X } from 'lucide-react';
 
 interface HeaderProps {
   onStartClaim: () => void;
+  onSignIn?: () => void; // <--- Added this prop
 }
 
-export function Header({ onStartClaim }: HeaderProps) {
+export function Header({ onStartClaim, onSignIn }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -73,7 +74,10 @@ export function Header({ onStartClaim }: HeaderProps) {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-4">
-            <button className="text-foreground hover:text-primary transition-colors px-4 py-2">
+            <button 
+              onClick={onSignIn} // <--- Connected to onSignIn
+              className="text-foreground hover:text-primary transition-colors px-4 py-2"
+            >
               Sign In
             </button>
             <button 
@@ -122,7 +126,13 @@ export function Header({ onStartClaim }: HeaderProps) {
                 FAQ
               </button>
               <div className="border-t border-border pt-4 px-4 flex flex-col gap-3">
-                <button className="text-foreground hover:text-primary transition-colors text-left">
+                <button 
+                  onClick={() => {
+                    if (onSignIn) onSignIn(); // <--- Connected to onSignIn
+                    setIsMobileMenuOpen(false); // Close menu after clicking
+                  }}
+                  className="text-foreground hover:text-primary transition-colors text-left"
+                >
                   Sign In
                 </button>
                 <button 

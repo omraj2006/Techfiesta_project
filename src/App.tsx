@@ -2,64 +2,91 @@ import React, { useState } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { AdminApp } from './components/AdminApp';
 import { UserApp } from './components/UserApp';
-import { ComponentShowcase } from './components/design-system/ComponentShowcase';
-import { DeveloperHandoff } from './components/design-system/DeveloperHandoff';
-import { DesignSystemShowcase } from './components/DesignSystemShowcase';
-import { FileText, LayoutDashboard, Palette, Code, Home, User } from 'lucide-react';
+import { User, LayoutDashboard, ArrowLeft, ShieldCheck } from 'lucide-react';
 
-type View = 'landing' | 'user' | 'admin' ;
+// Define the valid views for the application
+type View = 'landing' | 'user' | 'admin' | 'auth';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
 
-  return (
-    <div className="dark min-h-screen bg-background text-foreground">
-      {/* Navigation Menu */}
-      <div className="fixed top-4 right-4 z-[100] bg-card border border-border rounded-xl shadow-card-elevated p-2 flex flex-col gap-2">
+  // --- 1. The Role Selection Component (Internal for simplicity) ---
+  const AuthSelection = () => (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 animate-in fade-in duration-500">
+      <div className="w-full max-w-3xl space-y-8">
         
-         
-        <div className="border-t border-border my-1"></div>
-        <button
-          onClick={() => setCurrentView('landing')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-            currentView === 'landing' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'hover:bg-muted text-muted-foreground'
-          }`}
-          title="Landing Page"
-        >
-          <Home size={20} />
-          <span className="hidden lg:inline text-sm">Landing</span>
-        </button>
-        <button
-          onClick={() => setCurrentView('user')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-            currentView === 'user' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'hover:bg-muted text-muted-foreground'
-          }`}
-          title="User Portal"
-        >
-          <User size={20} />
-          <span className="hidden lg:inline text-sm">User Portal</span>
-        </button>
-        <button
-          onClick={() => setCurrentView('admin')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-            currentView === 'admin' 
-              ? 'bg-primary text-primary-foreground' 
-              : 'hover:bg-muted text-muted-foreground'
-          }`}
-          title="Admin Dashboard"
-        >
-          <LayoutDashboard size={20} />
-          <span className="hidden lg:inline text-sm">Admin</span>
-        </button>
-      </div>
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="flex justify-center mb-6">
+            <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center">
+              <ShieldCheck className="h-10 w-10 text-primary" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">Welcome Back</h1>
+          <p className="text-muted-foreground text-lg">Select your portal to continue</p>
+        </div>
 
-      {/* Content */}
-      {currentView === 'landing' && <LandingPage />}
+        {/* Selection Cards */}
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
+          {/* User Card */}
+          <button 
+            onClick={() => setCurrentView('user')}
+            className="group relative flex flex-col items-center p-8 bg-card hover:bg-muted/50 border border-border rounded-2xl transition-all duration-300 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 text-left"
+          >
+            <div className="h-14 w-14 bg-blue-500/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <User className="h-7 w-7 text-blue-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Policyholder</h3>
+            <p className="text-sm text-muted-foreground text-center">
+              File new claims, track status, and manage your insurance policies.
+            </p>
+          </button>
+
+          {/* Admin Card */}
+          <button 
+            onClick={() => setCurrentView('admin')}
+            className="group relative flex flex-col items-center p-8 bg-card hover:bg-muted/50 border border-border rounded-2xl transition-all duration-300 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 text-left"
+          >
+            <div className="h-14 w-14 bg-purple-500/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <LayoutDashboard className="h-7 w-7 text-purple-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Claims Adjuster</h3>
+            <p className="text-sm text-muted-foreground text-center">
+              Review incoming claims, verify documents, and approve payouts.
+            </p>
+          </button>
+        </div>
+
+        {/* Back Button */}
+        <div className="text-center pt-8">
+          <button 
+            onClick={() => setCurrentView('landing')}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-2 mx-auto transition-colors"
+          >
+            <ArrowLeft size={16} /> Back to Home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="dark min-h-screen bg-background text-foreground font-sans">
+      
+      {/* Logic: 
+         1. If view is 'landing', pass the onSignIn function 
+         2. If view is 'auth', show the selection screen
+         3. Else show dashboards
+      */}
+
+      {currentView === 'landing' && (
+        <LandingPage onSignIn={() => setCurrentView('auth')} />
+      )}
+      
+      {currentView === 'auth' && <AuthSelection />}
+      
       {currentView === 'user' && <UserApp />}
+      
       {currentView === 'admin' && <AdminApp />}
     </div>
   );

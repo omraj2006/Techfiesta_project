@@ -9,12 +9,21 @@ import { FAQ } from './landing/FAQ';
 import { Footer } from './landing/Footer';
 import { ClaimInterface } from './user/ClaimInterface';
 
-export function LandingPage() {
+// Define the interface to accept the sign-in function from App.tsx
+interface LandingPageProps {
+  onSignIn?: () => void;
+}
+
+export function LandingPage({ onSignIn }: LandingPageProps) {
   const [showClaimInterface, setShowClaimInterface] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onStartClaim={() => setShowClaimInterface(true)} />
+      {/* Pass the onSignIn function to the Header */}
+      <Header 
+        onStartClaim={() => setShowClaimInterface(true)} 
+        onSignIn={onSignIn}
+      />
       <main>
         <Hero onStartClaim={() => setShowClaimInterface(true)} />
         <ProblemSection />
