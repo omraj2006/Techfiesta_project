@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Upload, Camera, FileText, CheckCircle, ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
+import { X, Upload, CheckCircle, ArrowRight, ArrowLeft, ScanEye, FileText, Loader2, AlertTriangle } from 'lucide-react';
+import { useImageClassifier } from '../../hooks/useImageClassifier';
 
 interface ClaimInterfaceProps {
   onClose: () => void;
@@ -11,7 +12,7 @@ interface ClaimInterfaceProps {
   }) => void;
 }
 
-type ClaimStep = 'type' | 'upload' | 'details' | 'review' | 'submitted';
+type ClaimStep = 'type' | 'evidence' | 'details' | 'review' | 'submitted';
 
 interface ValidationResponse {
   success: boolean;
@@ -25,114 +26,215 @@ interface ValidationResponse {
 export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProps) {
   const [currentStep, setCurrentStep] = useState<ClaimStep>('type');
   const [selectedClaimType, setSelectedClaimType] = useState<string>('');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  
+  // --- DUAL FILE STATE ---
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null); // Photo/Bill
+  const [policyFile, setPolicyFile] = useState<File | null>(null);     // Policy Doc
+
+  // Form State
   const [claimAmount, setClaimAmount] = useState<string>('');
-  const [incidentDate, setIncidentDate] = useState<string>('');
+  // DEFAULT TO TODAY'S DATE
+  const [incidentDate, setIncidentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [location, setLocation] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  
+  // Processing State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationResponse, setValidationResponse] = useState<ValidationResponse | null>(null);
   const [claimId, setClaimId] = useState<string>('');
+  
+  // Backend Processing State
+  const [isExtractingData, setIsExtractingData] = useState(false);
+  const [extractedPolicyData, setExtractedPolicyData] = useState<any>(null);
+
+  // AI Hook (Visual Check - Teachable Machine)
+  const { classifyImage, prediction, confidence, isAnalyzing } = useImageClassifier();
 
   const claimTypes = [
-    { id: 'vehicle', label: 'Auto Insurance', icon: '🚗' },
-    { id: 'home', label: 'Home Insurance', icon: '🏠' },
-    { id: 'health', label: 'Health Insurance', icon: '🏥' },
-    { id: 'life', label: 'Life Insurance', icon: '❤️' },
+    { 
+        id: 'vehicle', 
+        label: 'Auto Insurance', 
+        icon: '🚗', 
+        aiClass: 'Vehicle Damage', 
+        evidenceLabel: 'Car Damage Photo',
+        endpoint: '/validate-vehicle' 
+    },
+    { 
+        id: 'home', 
+        label: 'Home Insurance', 
+        icon: '🏠', 
+        aiClass: 'Home Damage', 
+        evidenceLabel: 'Home Damage Photo',
+        endpoint: '/validate-home' 
+    },
+    { 
+        id: 'health', 
+        label: 'Health Insurance', 
+        icon: '🏥', 
+        aiClass: 'Medical Docs', 
+        evidenceLabel: 'Medical Bill',
+        endpoint: '/validate-health' 
+    },
+    { 
+        id: 'life', 
+        label: 'Life Insurance', 
+        icon: '❤️', 
+        aiClass: 'Medical Docs', 
+        evidenceLabel: 'Medical Bill',
+        endpoint: '/validate-life' 
+    },
   ];
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // --- 1. HANDLE EVIDENCE UPLOAD (VISUAL AI) ---
+  const handleEvidenceSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setUploadedFile(file);
+      setEvidenceFile(file);
+      // Run Visual AI (Is this a car?)
+      classifyImage(file);
+    }
+  };
+
+  // --- 2. HANDLE POLICY UPLOAD (BACKEND OCR) ---
+  const handlePolicySelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPolicyFile(file);
+      setIsExtractingData(true);
+      
+      try {
+        const selectedType = claimTypes.find(t => t.id === selectedClaimType);
+        if (!selectedType) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('amount', '0'); // Placeholder
+
+        // Call your SERVER.JS logic
+        const response = await fetch(`http://localhost:3000${selectedType.endpoint}`, {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            setExtractedPolicyData(result.data);
+            
+            // --- SMART AUTO-FILL LOGIC ---
+            
+            // 1. Description Construction
+            let desc = `Claim verified by AI as: ${prediction || 'Pending'}.\n`;
+            if (result.data.policyNumber) desc += `Policy #: ${result.data.policyNumber}\n`;
+            if (result.data.vehicleNumber) desc += `Vehicle: ${result.data.vehicleNumber}\n`;
+            if (result.data.extractedText) desc += `\nDoc Text: ${result.data.extractedText.substring(0, 100)}...`;
+            
+            setDescription(desc);
+
+            // 2. Suggest Amount if found
+            const foundAmount = result.data.sumInsuredVal || result.data.idvVal;
+            if (foundAmount) {
+                // We don't force it, but console log it or set it if empty
+                if(!claimAmount) setClaimAmount(foundAmount.toString());
+            }
+        }
+      } catch (err) {
+          console.error("OCR Error", err);
+      } finally {
+          setIsExtractingData(false);
+      }
+    }
+  };
+
+  // --- VALIDATION HELPER ---
+  const isEvidenceValid = () => {
+    if (!prediction) return true; // Fallback
+    const selectedType = claimTypes.find(t => t.id === selectedClaimType);
+    const expectedClass = selectedType?.aiClass;
+    
+    if (prediction === 'Invalid' || prediction === 'Random') return false;
+    
+    if (expectedClass) {
+        const cleanPrediction = prediction.toLowerCase().trim();
+        const cleanExpected = expectedClass.toLowerCase().trim();
+        // Loose matching
+        if (!cleanPrediction.includes(cleanExpected) && !cleanExpected.includes(cleanPrediction)) {
+            return false;
+        }
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (currentStep === 'type') {
+        if(selectedClaimType) setCurrentStep('evidence');
+    } 
+    else if (currentStep === 'evidence') {
+        if (!evidenceFile || !policyFile) {
+            alert('Please upload BOTH the Evidence Photo and the Policy Document.');
+            return;
+        }
+        // AI Guardrail
+        if (!isAnalyzing && prediction && !isEvidenceValid()) {
+             const lbl = claimTypes.find(t => t.id === selectedClaimType)?.label;
+             alert(`⚠️ Mismatch! You chose ${lbl}, but AI detected "${prediction}". Upload a valid photo.`);
+             return;
+        }
+        setCurrentStep('details');
+    } 
+    else if (currentStep === 'details') {
+        if (!claimAmount) { alert('Enter amount'); return; }
+        setCurrentStep('review');
+    } 
+    else if (currentStep === 'review') {
+        submitClaimToBackend();
     }
   };
 
   const submitClaimToBackend = async () => {
-    if (!uploadedFile || !claimAmount || !selectedClaimType) {
-      alert('Please upload a file and enter claim amount');
-      return;
-    }
-
     setIsSubmitting(true);
-
     try {
-      const formData = new FormData();
-      formData.append('image', uploadedFile);
-      formData.append('amount', claimAmount);
+        await fetch('http://localhost:3000/submit-claim', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+                 userName: "Demo User",
+                 claimType: selectedClaimType,
+                 amount: claimAmount,
+                 validationStatus: prediction === 'Invalid' ? 'REJECTED' : 'pending',
+                 extractedData: extractedPolicyData
+             })
+        });
+
+      const result: ValidationResponse = {
+        success: true,
+        validation: { status: 'APPROVED', issues: [] }, // Mock success for demo
+        data: { ai_tag: prediction, confidence: confidence }
+      };
       
-      if (incidentDate) formData.append('incident_date', incidentDate);
-      if (location) formData.append('location', location);
-      if (description) formData.append('description', description);
-
-      const endpoint = `/validate-${selectedClaimType}`;
-      const response = await fetch(`http://localhost:3000${endpoint}`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result: ValidationResponse = await response.json();
       setValidationResponse(result);
-      
-      const generatedClaimId = `#CLM-2024-${Math.floor(Math.random() * 10000)}`;
-      setClaimId(generatedClaimId);
+      setClaimId(`#CLM-${Math.floor(Math.random() * 10000)}`);
       
       if (onClaimSubmitted) {
         onClaimSubmitted({
-          claimId: generatedClaimId,
-          validationResponse: result,
-          claimType: claimTypes.find(t => t.id === selectedClaimType)?.label || selectedClaimType,
-          amount: claimAmount,
+          claimId: "123", validationResponse: result, claimType: selectedClaimType, amount: claimAmount
         });
       }
-      
       setCurrentStep('submitted');
     } catch (error) {
-      console.error('Error submitting claim:', error);
-      alert('Failed to submit claim. Please ensure backend is running on http://localhost:3000');
+      alert('Failed to submit.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleNext = () => {
-    if (currentStep === 'type' && selectedClaimType) {
-      setCurrentStep('upload');
-    } else if (currentStep === 'upload') {
-      if (!uploadedFile) {
-        alert('Please upload a document');
-        return;
-      }
-      setCurrentStep('details');
-    } else if (currentStep === 'details') {
-      if (!claimAmount) {
-        alert('Please enter claim amount');
-        return;
-      }
-      setCurrentStep('review');
-    } else if (currentStep === 'review') {
-      submitClaimToBackend();
-    }
-  };
-
   const handleBack = () => {
-    if (currentStep === 'upload') {
-      setCurrentStep('type');
-    } else if (currentStep === 'details') {
-      setCurrentStep('upload');
-    } else if (currentStep === 'review') {
-      setCurrentStep('details');
-    }
+    if (currentStep === 'evidence') setCurrentStep('type');
+    if (currentStep === 'details') setCurrentStep('evidence');
+    if (currentStep === 'review') setCurrentStep('details');
   };
 
   const getStepNumber = () => {
-    const steps: Record<ClaimStep, number> = {
-      'type': 1,
-      'upload': 2,
-      'details': 3,
-      'review': 4,
-      'submitted': 5
-    };
+    const steps: Record<ClaimStep, number> = { 'type': 1, 'evidence': 2, 'details': 3, 'review': 4, 'submitted': 5 };
     return steps[currentStep];
   };
 
@@ -143,328 +245,116 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div>
             <h2 className="text-foreground">File New Claim</h2>
-            {currentStep !== 'submitted' && (
-              <p className="text-sm text-muted-foreground mt-1">Step {getStepNumber()} of 4</p>
-            )}
+            {currentStep !== 'submitted' && <p className="text-sm text-muted-foreground mt-1">Step {getStepNumber()} of 4</p>}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-            aria-label="Close"
-          >
-            <X size={24} className="text-muted-foreground" />
-          </button>
+          <button onClick={onClose}><X size={24} className="text-muted-foreground" /></button>
         </div>
 
-        {/* Progress Bar */}
-        {currentStep !== 'submitted' && (
-          <div className="px-6 pt-4">
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary rounded-full transition-all duration-300"
-                style={{ width: `${(getStepNumber() / 4) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        )}
-
-        {/* Content */}
+        {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Step 1: Select Claim Type */}
+          
+          {/* STEP 1: TYPE SELECTION */}
           {currentStep === 'type' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-foreground mb-2">Select Claim Type</h3>
-                <p className="text-muted-foreground">Choose the type of insurance claim you want to file</p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {claimTypes.map((type) => (
+                <button key={type.id} onClick={() => setSelectedClaimType(type.id)} 
+                  className={`p-6 rounded-xl border-2 text-left ${selectedClaimType === type.id ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}>
+                  <div className="text-4xl mb-3">{type.icon}</div>
+                  <h4 className="text-foreground">{type.label}</h4>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* STEP 2: DUAL UPLOAD (THE MAIN LOGIC) */}
+          {currentStep === 'evidence' && (
+            <div className="space-y-8">
+              {/* Box A: Damage Photo (Visual AI) */}
+              <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-primary/30">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                   1. Upload {claimTypes.find(t => t.id === selectedClaimType)?.evidenceLabel}
+                   {isAnalyzing && <Loader2 className="animate-spin h-4 w-4"/>}
+                   {!isAnalyzing && prediction && (isEvidenceValid() ? <CheckCircle className="text-green-500 h-5 w-5"/> : <AlertTriangle className="text-red-500 h-5 w-5"/>)}
+                </h3>
+                <input type="file" accept="image/*" onChange={handleEvidenceSelect} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"/>
+                {prediction && (
+                    <p className={`text-xs mt-2 ${isEvidenceValid() ? 'text-green-600' : 'text-red-600'}`}>
+                        AI Detected: <b>{prediction}</b> ({(confidence * 100).toFixed(0)}%)
+                    </p>
+                )}
               </div>
-              
-              <div className="grid sm:grid-cols-2 gap-4">
-                {claimTypes.map((type) => (
-                  <button
-                    key={type.id}
-                    onClick={() => setSelectedClaimType(type.id)}
-                    className={`p-6 rounded-xl border-2 transition-all text-left ${
-                      selectedClaimType === type.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50 bg-card'
-                    }`}
-                  >
-                    <div className="text-4xl mb-3">{type.icon}</div>
-                    <h4 className="text-foreground">{type.label}</h4>
-                  </button>
-                ))}
+
+              {/* Box B: Policy Doc (Backend Extraction) */}
+              <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-blue-500/30">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    2. Upload Policy Document
+                    {isExtractingData && <Loader2 className="animate-spin h-4 w-4"/>}
+                    {extractedPolicyData && <CheckCircle className="text-green-500 h-5 w-5"/>}
+                </h3>
+                <input type="file" accept="image/*,.pdf" onChange={handlePolicySelect} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"/>
+                {extractedPolicyData && (
+                    <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                        Found Policy #: {extractedPolicyData.policyNumber || "Unknown"}
+                    </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Step 2: Upload Documents */}
-          {currentStep === 'upload' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-foreground mb-2">Upload Documents</h3>
-                <p className="text-muted-foreground">Take photos or upload documents related to your claim</p>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <label className="p-8 border-2 border-dashed border-border hover:border-primary/50 rounded-xl transition-all bg-card hover:bg-primary/5 group cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="bg-primary/10 p-4 rounded-full group-hover:bg-primary/20 transition-colors">
-                      <Camera size={32} className="text-primary" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-foreground">Take Photo</p>
-                      <p className="text-sm text-muted-foreground mt-1">Use your camera</p>
-                    </div>
-                  </div>
-                </label>
-
-                <label className="p-8 border-2 border-dashed border-border hover:border-primary/50 rounded-xl transition-all bg-card hover:bg-primary/5 group cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="bg-primary/10 p-4 rounded-full group-hover:bg-primary/20 transition-colors">
-                      <Upload size={32} className="text-primary" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-foreground">Upload Files</p>
-                      <p className="text-sm text-muted-foreground mt-1">From your device</p>
-                    </div>
-                  </div>
-                </label>
-              </div>
-
-              {uploadedFile && (
-                <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex gap-3">
-                  <CheckCircle size={20} className="text-success shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-foreground">File uploaded</p>
-                    <p className="text-sm text-muted-foreground mt-1">{uploadedFile.name} ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex gap-3">
-                <AlertCircle size={20} className="text-primary shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-foreground">Supported formats</p>
-                  <p className="text-sm text-muted-foreground mt-1">JPG, PNG, PDF • Max 10MB per file</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Claim Details */}
+          {/* STEP 3: DETAILS (AUTO-FILLED) */}
           {currentStep === 'details' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-foreground mb-2">Claim Details</h3>
-                <p className="text-muted-foreground">Tell us what happened</p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-foreground mb-2">Incident Date</label>
-                  <input
-                    type="date"
-                    value={incidentDate}
-                    onChange={(e) => setIncidentDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-input-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-foreground mb-2">Location</label>
-                  <input
-                    type="text"
-                    placeholder="Where did the incident occur?"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full px-4 py-3 bg-input-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-foreground mb-2">Description</label>
-                  <textarea
-                    rows={5}
-                    placeholder="Describe what happened in detail..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-4 py-3 bg-input-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-foreground mb-2">Estimated Claim Amount *</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={claimAmount}
-                      onChange={(e) => setClaimAmount(e.target.value)}
-                      className="w-full pl-8 pr-4 py-3 bg-input-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      required
-                    />
+            <div className="space-y-4">
+               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex gap-3 text-sm">
+                  <ScanEye className="text-blue-500 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Auto-Filled by AI</p>
+                    <p className="text-muted-foreground">We extracted details from your uploaded documents.</p>
                   </div>
-                </div>
-              </div>
+               </div>
+
+               <div>
+                 <label className="block mb-2">Incident Date</label>
+                 <input type="date" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} className="w-full p-3 bg-input-background border rounded-lg"/>
+               </div>
+
+               <div>
+                 <label className="block mb-2">Description</label>
+                 <textarea rows={5} value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 bg-input-background border rounded-lg"/>
+               </div>
+
+               <div>
+                 <label className="block mb-2">Claim Amount</label>
+                 <input type="number" value={claimAmount} onChange={e => setClaimAmount(e.target.value)} className="w-full p-3 bg-input-background border rounded-lg" placeholder="0.00"/>
+               </div>
             </div>
           )}
 
-          {/* Step 4: Review */}
+          {/* STEP 4: REVIEW */}
           {currentStep === 'review' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-foreground mb-2">Review Your Claim</h3>
-                <p className="text-muted-foreground">Make sure everything looks correct before submitting</p>
-              </div>
+             <div className="space-y-4 text-sm">
+                <div className="bg-muted p-4 rounded">Claim: {selectedClaimType}</div>
+                <div className="bg-muted p-4 rounded">Amount: ${claimAmount}</div>
+                <div className="bg-muted p-4 rounded">Status: Ready to Submit</div>
+             </div>
+          )}
 
-              <div className="space-y-4">
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Claim Type</p>
-                  <p className="text-foreground">{claimTypes.find(t => t.id === selectedClaimType)?.label}</p>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Documents</p>
-                  <p className="text-foreground">{uploadedFile ? uploadedFile.name : 'No file uploaded'}</p>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <p className="text-sm text-muted-foreground mb-1">Estimated Amount</p>
-                  <p className="text-foreground">${claimAmount || '0.00'}</p>
-                </div>
-              </div>
-
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex gap-3">
-                <CheckCircle size={20} className="text-primary shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-foreground">Ready to submit</p>
-                  <p className="text-sm text-muted-foreground mt-1">You'll receive updates via email and SMS</p>
-                </div>
-              </div>
+          {/* STEP 5: SUBMITTED */}
+          {currentStep === 'submitted' && (
+            <div className="text-center py-8">
+               <CheckCircle size={64} className="text-success mx-auto mb-4"/>
+               <h3>Claim Submitted!</h3>
+               <button onClick={onClose} className="mt-6 bg-primary text-white px-6 py-2 rounded">Close</button>
             </div>
           )}
 
-          {/* Step 5: Submitted */}
-          {currentStep === 'submitted' && validationResponse && (
-            <div className="text-center py-8 space-y-6">
-              <div className="flex justify-center">
-                <div className={`p-6 rounded-full ${
-                  validationResponse.validation?.status === 'APPROVED'
-                    ? 'bg-success/10 border border-success/20'
-                    : validationResponse.validation?.status === 'REJECTED'
-                    ? 'bg-destructive/10 border border-destructive/20'
-                    : 'bg-warning/10 border border-warning/20'
-                }`}>
-                  <CheckCircle size={64} className={`${
-                    validationResponse.validation?.status === 'APPROVED'
-                      ? 'text-success'
-                      : validationResponse.validation?.status === 'REJECTED'
-                      ? 'text-destructive'
-                      : 'text-warning'
-                  }`} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-foreground">Claim Submitted Successfully!</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Your claim has been received and processed. See validation results below.
-                </p>
-              </div>
-
-              <div className="bg-card border border-border rounded-xl p-6 max-w-md mx-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm text-muted-foreground">Claim ID</p>
-                  <p className="text-foreground">{claimId}</p>
-                </div>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    validationResponse.validation?.status === 'APPROVED'
-                      ? 'bg-success/20 text-success'
-                      : validationResponse.validation?.status === 'REJECTED'
-                      ? 'bg-destructive/20 text-destructive'
-                      : 'bg-warning/20 text-warning'
-                  }`}>
-                    {validationResponse.validation?.status || 'Processing'}
-                  </span>
-                </div>
-                {validationResponse.validation?.issues && validationResponse.validation.issues.length > 0 && (
-                  <div className="border-t border-border pt-4 mt-4">
-                    <p className="text-sm text-muted-foreground mb-2">Validation Issues:</p>
-                    <ul className="text-sm text-foreground space-y-1 text-left">
-                      {validationResponse.validation.issues.map((issue, idx) => (
-                        <li key={idx}>• {issue}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {validationResponse.data && (
-                  <div className="border-t border-border pt-4 mt-4">
-                    <p className="text-sm text-muted-foreground mb-2">Extracted Data:</p>
-                    <div className="text-sm text-foreground text-left space-y-1">
-                      {Object.entries(validationResponse.data).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="text-muted-foreground">{key}:</span>
-                          <span>{String(value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={onClose}
-                className="bg-primary text-primary-foreground px-8 py-3 rounded-lg transition-all hover:opacity-90 active:scale-[0.98]"
-              >
-                View Dashboard
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer */}
         {currentStep !== 'submitted' && (
-          <div className="p-6 border-t border-border flex items-center justify-between">
-            <button
-              onClick={handleBack}
-              disabled={currentStep === 'type'}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-                currentStep === 'type'
-                  ? 'text-muted-foreground cursor-not-allowed'
-                  : 'text-foreground hover:bg-muted'
-              }`}
-            >
-              <ArrowLeft size={20} />
-              Back
-            </button>
-
-            <button
-              onClick={handleNext}
-              disabled={(currentStep === 'type' && !selectedClaimType) || isSubmitting}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-                (currentStep === 'type' && !selectedClaimType) || isSubmitting
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                  : 'bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98]'
-              }`}
-            >
-              {isSubmitting ? 'Submitting...' : currentStep === 'review' ? 'Submit Claim' : 'Next'}
-              {!isSubmitting && <ArrowRight size={20} />}
+          <div className="p-6 border-t flex justify-between">
+            <button onClick={handleBack} disabled={currentStep === 'type'} className="px-6 py-2 rounded hover:bg-muted">Back</button>
+            <button onClick={handleNext} disabled={isAnalyzing || isExtractingData} className="bg-primary text-white px-6 py-2 rounded">
+                {(isAnalyzing || isExtractingData) ? 'Processing...' : 'Next'}
             </button>
           </div>
         )}
