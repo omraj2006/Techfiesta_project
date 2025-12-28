@@ -15,9 +15,14 @@ export function UserLogin({ onLogin }: UserLoginProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // MODIFIED: Logic to allow submission without email/password
-    // If email is provided, we use the name before '@', otherwise we use 'Guest'
-    const userName = email ? email.split('@')[0] : 'Guest';
+    // 👇 FIXED: Require Email so data isn't lost
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    // Always use the name before '@' as the ID
+    const userName = email.split('@')[0];
     onLogin(userName);
   };
 
@@ -62,9 +67,9 @@ export function UserLogin({ onLogin }: UserLoginProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user@example.com (Optional)"
+                  placeholder="user@example.com"
                   className="w-full bg-input-background border border-input pl-11 pr-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-                  // MODIFIED: Removed 'required' attribute
+                  required 
                 />
               </div>
             </div>
@@ -79,9 +84,8 @@ export function UserLogin({ onLogin }: UserLoginProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password (Optional)"
+                  placeholder="Enter your password"
                   className="w-full bg-input-background border border-input pl-11 pr-12 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all"
-                  // MODIFIED: Removed 'required' attribute
                 />
                 <button
                   type="button"

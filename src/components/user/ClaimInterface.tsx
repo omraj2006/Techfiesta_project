@@ -106,6 +106,8 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         const selectedType = claimTypes.find(t => t.id === selectedClaimType);
         if (!selectedType) return;
 
+        console.log(`Sending to backend: http://localhost:3000${selectedType.endpoint}`);
+
         const formData = new FormData();
         formData.append('image', file);
         formData.append('amount', '0'); // Placeholder
@@ -116,6 +118,7 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
             body: formData,
         });
         const result = await response.json();
+        console.log("Backend Response:", result);
         
         if (result.success && result.data) {
             setExtractedPolicyData(result.data);
@@ -133,12 +136,12 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
             // 2. Suggest Amount if found
             const foundAmount = result.data.sumInsuredVal || result.data.idvVal;
             if (foundAmount) {
-                // We don't force it, but console log it or set it if empty
                 if(!claimAmount) setClaimAmount(foundAmount.toString());
             }
         }
       } catch (err) {
-          console.error("OCR Error", err);
+          console.error("OCR Error - Is Backend Running?", err);
+          alert("Could not connect to backend. Make sure 'node server.js' is running!");
       } finally {
           setIsExtractingData(false);
       }

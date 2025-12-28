@@ -73,21 +73,21 @@ export default function App() {
   return (
     <div className="dark min-h-screen bg-background text-foreground font-sans">
       
-      {/* Logic: 
-         1. If view is 'landing', pass the onSignIn function 
-         2. If view is 'auth', show the selection screen
-         3. Else show dashboards
-      */}
-
       {currentView === 'landing' && (
         <LandingPage onSignIn={() => setCurrentView('auth')} />
       )}
       
       {currentView === 'auth' && <AuthSelection />}
       
-      {currentView === 'user' && <UserApp />}
+      {/* 👇 UPDATED: Passing the onLogout prop here */}
+      {currentView === 'user' && (
+        <UserApp onLogout={() => setCurrentView('landing')} />
+      )}
       
-      {currentView === 'admin' && <AdminApp />}
+      {/* 👇 UPDATED: Passing the onLogout prop here */}
+      {currentView === 'admin' && (
+        <AdminApp onLogout={() => setCurrentView('landing')} />
+      )}
     </div>
   );
 }

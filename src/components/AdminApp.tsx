@@ -27,7 +27,13 @@ interface ClaimData {
   issues?: string[];
 }
 
-export function AdminApp() {
+// 👇 CHANGE 1: Define the props interface
+interface AdminAppProps {
+  onLogout: () => void;
+}
+
+// 👇 CHANGE 2: Accept the prop here
+export function AdminApp({ onLogout }: AdminAppProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [applications, setApplications] = useState<ApplicationData[]>([]);
@@ -126,6 +132,8 @@ export function AdminApp() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentPage('dashboard');
+    // 👇 CHANGE 3: Call the parent logout function
+    onLogout();
   };
 
   const handleNavigate = (page: string) => {

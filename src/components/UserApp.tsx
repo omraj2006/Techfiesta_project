@@ -26,7 +26,11 @@ interface ClaimData {
   };
 }
 
-export function UserApp() {
+interface UserAppProps {
+  onLogout: () => void;
+}
+
+export function UserApp({ onLogout }: UserAppProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -60,6 +64,7 @@ export function UserApp() {
     setIsLoggedIn(false);
     setUserName('');
     setCurrentPage('dashboard');
+    onLogout();
   };
 
   const handleNavigate = (page: string) => {
@@ -80,6 +85,7 @@ export function UserApp() {
     setShowClaimModal(false);
   };
 
+  // 👇 UPDATED FUNCTION: Redirects to Dashboard after submit
   const handleClaimSubmitted = async (claimData: {
     claimId: string;
     validationResponse: any;
@@ -122,9 +128,11 @@ export function UserApp() {
       updated.set(claimData.claimId, newClaimData);
       return updated;
     });
-    setSelectedClaimId(claimData.claimId);
-    setCurrentPage('claim-status');
-    setShowClaimModal(false);
+
+    // 👇 KEY CHANGES:
+    setSelectedClaimId(null);    // Do NOT select the claim
+    setCurrentPage('dashboard'); // Go to Dashboard
+    setShowClaimModal(false);    // Close Modal
     
     // Refresh claims from backend
     await fetchClaims(userName);
