@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Upload, CheckCircle, ArrowRight, ArrowLeft, ScanEye, FileText, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Upload, CheckCircle, ArrowRight, ArrowLeft, ScanEye, FileText, Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
 import { useImageClassifier } from '../../hooks/useImageClassifier';
 
 interface ClaimInterfaceProps {
@@ -23,31 +23,36 @@ interface ValidationResponse {
   };
 }
 
+// Mock Policies
+const MOCK_POLICIES: Record<string, string[]> = {
+    'vehicle': ['POL-AUTO-9988 (Tata Nexon)', 'POL-AUTO-1122 (Honda City)'],
+    'home': ['POL-HOME-4455 (Pune Flat)', 'POL-HOME-7788 (Mumbai Villa)'],
+    'health': ['POL-HLTH-3344 (Family Floater)', 'POL-HLTH-5566 (Senior Citizen)'],
+    'life': ['POL-LIFE-2211 (Term Plan)', 'POL-LIFE-9900 (Endowment)']
+};
+
 export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProps) {
   const [currentStep, setCurrentStep] = useState<ClaimStep>('type');
   const [selectedClaimType, setSelectedClaimType] = useState<string>('');
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string>('');
   
-  // --- DUAL FILE STATE ---
-  const [evidenceFile, setEvidenceFile] = useState<File | null>(null); // Photo/Bill
-  const [policyFile, setPolicyFile] = useState<File | null>(null);     // Policy Doc
+  // File State
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [policyFile, setPolicyFile] = useState<File | null>(null);
 
   // Form State
   const [claimAmount, setClaimAmount] = useState<string>('');
-  // DEFAULT TO TODAY'S DATE
   const [incidentDate, setIncidentDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [location, setLocation] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   
   // Processing State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationResponse, setValidationResponse] = useState<ValidationResponse | null>(null);
   const [claimId, setClaimId] = useState<string>('');
-  
-  // Backend Processing State
   const [isExtractingData, setIsExtractingData] = useState(false);
   const [extractedPolicyData, setExtractedPolicyData] = useState<any>(null);
 
-  // AI Hook (Visual Check - Teachable Machine)
+  // AI Hook
   const { classifyImage, prediction, confidence, isAnalyzing } = useImageClassifier();
 
   const claimTypes = [
@@ -55,7 +60,8 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         id: 'vehicle', 
         label: 'Auto Insurance', 
         icon: '🚗', 
-        aiClass: 'Vehicle Damage', 
+        // UPDATED: Matches "damage_vehicle" or "damage-vehicle"
+        aiClass: 'damage_vehicle', 
         evidenceLabel: 'Car Damage Photo',
         endpoint: '/validate-vehicle' 
     },
@@ -63,7 +69,8 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         id: 'home', 
         label: 'Home Insurance', 
         icon: '🏠', 
-        aiClass: 'Home Damage', 
+        // UPDATED: Matches "damage_home" or "damage-home"
+        aiClass: 'damage_home', 
         evidenceLabel: 'Home Damage Photo',
         endpoint: '/validate-home' 
     },
@@ -71,7 +78,7 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         id: 'health', 
         label: 'Health Insurance', 
         icon: '🏥', 
-        aiClass: 'Medical Docs', 
+        aiClass: null,
         evidenceLabel: 'Medical Bill',
         endpoint: '/validate-health' 
     },
@@ -79,107 +86,90 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         id: 'life', 
         label: 'Life Insurance', 
         icon: '❤️', 
-        aiClass: 'Medical Docs', 
-        evidenceLabel: 'Medical Bill',
+        aiClass: null,
+        evidenceLabel: 'Death Certificate',
         endpoint: '/validate-life' 
     },
   ];
 
-  // --- 1. HANDLE EVIDENCE UPLOAD (VISUAL AI) ---
+  // --- 1. HANDLE EVIDENCE UPLOAD ---
   const handleEvidenceSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setEvidenceFile(file);
-      // Run Visual AI (Is this a car?)
-      classifyImage(file);
+      // Run Visual AI only if needed
+      const selectedType = claimTypes.find(t => t.id === selectedClaimType);
+      if (selectedType?.aiClass) {
+          classifyImage(file);
+      }
     }
   };
 
-  // --- 2. HANDLE POLICY UPLOAD (BACKEND OCR) ---
+  // --- 2. HANDLE POLICY UPLOAD ---
   const handlePolicySelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setPolicyFile(file);
       setIsExtractingData(true);
       
-      try {
-        const selectedType = claimTypes.find(t => t.id === selectedClaimType);
-        if (!selectedType) return;
-
-        console.log(`Sending to backend: http://localhost:3000${selectedType.endpoint}`);
-
-        const formData = new FormData();
-        formData.append('image', file);
-        formData.append('amount', '0'); // Placeholder
-
-        // Call your SERVER.JS logic
-        const response = await fetch(`http://localhost:3000${selectedType.endpoint}`, {
-            method: 'POST',
-            body: formData,
-        });
-        const result = await response.json();
-        console.log("Backend Response:", result);
-        
-        if (result.success && result.data) {
-            setExtractedPolicyData(result.data);
-            
-            // --- SMART AUTO-FILL LOGIC ---
-            
-            // 1. Description Construction
-            let desc = `Claim verified by AI as: ${prediction || 'Pending'}.\n`;
-            if (result.data.policyNumber) desc += `Policy #: ${result.data.policyNumber}\n`;
-            if (result.data.vehicleNumber) desc += `Vehicle: ${result.data.vehicleNumber}\n`;
-            if (result.data.extractedText) desc += `\nDoc Text: ${result.data.extractedText.substring(0, 100)}...`;
-            
-            setDescription(desc);
-
-            // 2. Suggest Amount if found
-            const foundAmount = result.data.sumInsuredVal || result.data.idvVal;
-            if (foundAmount) {
-                if(!claimAmount) setClaimAmount(foundAmount.toString());
-            }
-        }
-      } catch (err) {
-          console.error("OCR Error - Is Backend Running?", err);
-          alert("Could not connect to backend. Make sure 'node server.js' is running!");
-      } finally {
+      // Simulating Backend Extraction
+      setTimeout(() => {
+          const mockData = {
+              success: true,
+              data: {
+                  policyNumber: selectedPolicyId,
+                  extractedText: "Policy Holder: John Doe. Valid till 2025.",
+                  sumInsuredVal: 50000
+              }
+          };
+          setExtractedPolicyData(mockData.data);
+          setDescription(`Claim verified by AI.\nPolicy #: ${mockData.data.policyNumber}`);
+          if(!claimAmount) setClaimAmount(mockData.data.sumInsuredVal.toString());
           setIsExtractingData(false);
-      }
+      }, 1500);
     }
   };
 
-  // --- VALIDATION HELPER ---
+  // --- FIXED VALIDATION HELPER ---
   const isEvidenceValid = () => {
-    if (!prediction) return true; // Fallback
+    // 1. Safety check
+    if (!prediction) return true;
+    
     const selectedType = claimTypes.find(t => t.id === selectedClaimType);
     const expectedClass = selectedType?.aiClass;
     
-    if (prediction === 'Invalid' || prediction === 'Random') return false;
-    
-    if (expectedClass) {
-        const cleanPrediction = prediction.toLowerCase().trim();
-        const cleanExpected = expectedClass.toLowerCase().trim();
-        // Loose matching
-        if (!cleanPrediction.includes(cleanExpected) && !cleanExpected.includes(cleanPrediction)) {
-            return false;
-        }
+    // 2. If this claim type doesn't use AI (Health/Life), it's valid
+    if (!expectedClass) return true;
+
+    // 3. Normalize strings (remove _ - and make lowercase)
+    const cleanPred = prediction.toLowerCase().replace(/[-_ ]/g, '');
+    const cleanExp = expectedClass.toLowerCase().replace(/[-_ ]/g, '');
+
+    // 4. Check for explicit mismatch keywords
+    if (cleanPred.includes('nonvehicle') || cleanPred.includes('nonhome')) {
+        return false;
     }
-    return true;
+    
+    // 5. Fuzzy Match (e.g., "damagehome" contains "damagehome")
+    return cleanPred.includes(cleanExp) || cleanExp.includes(cleanPred);
   };
 
   const handleNext = () => {
     if (currentStep === 'type') {
-        if(selectedClaimType) setCurrentStep('evidence');
+        if(!selectedClaimType) { alert("Select a claim type"); return; }
+        if(!selectedPolicyId) { alert("Select a policy"); return; }
+        setCurrentStep('evidence');
     } 
     else if (currentStep === 'evidence') {
         if (!evidenceFile || !policyFile) {
             alert('Please upload BOTH the Evidence Photo and the Policy Document.');
             return;
         }
+        
         // AI Guardrail
         if (!isAnalyzing && prediction && !isEvidenceValid()) {
              const lbl = claimTypes.find(t => t.id === selectedClaimType)?.label;
-             alert(`⚠️ Mismatch! You chose ${lbl}, but AI detected "${prediction}". Upload a valid photo.`);
+             alert(`⚠️ Mismatch! You chose ${lbl}, but AI detected "${prediction}". Please upload a valid photo.`);
              return;
         }
         setCurrentStep('details');
@@ -195,39 +185,23 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
 
   const submitClaimToBackend = async () => {
     setIsSubmitting(true);
-    try {
-        await fetch('http://localhost:3000/submit-claim', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({
-                 userName: "Demo User",
-                 claimType: selectedClaimType,
-                 amount: claimAmount,
-                 validationStatus: prediction === 'Invalid' ? 'REJECTED' : 'pending',
-                 extractedData: extractedPolicyData
-             })
-        });
-
-      const result: ValidationResponse = {
-        success: true,
-        validation: { status: 'APPROVED', issues: [] }, // Mock success for demo
-        data: { ai_tag: prediction, confidence: confidence }
-      };
-      
-      setValidationResponse(result);
-      setClaimId(`#CLM-${Math.floor(Math.random() * 10000)}`);
-      
-      if (onClaimSubmitted) {
-        onClaimSubmitted({
-          claimId: "123", validationResponse: result, claimType: selectedClaimType, amount: claimAmount
-        });
-      }
-      setCurrentStep('submitted');
-    } catch (error) {
-      alert('Failed to submit.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setTimeout(() => {
+        const result: ValidationResponse = {
+            success: true,
+            validation: { status: 'APPROVED', issues: [] },
+            data: { ai_tag: prediction, confidence: confidence }
+        };
+        setValidationResponse(result);
+        setClaimId(`#CLM-${Math.floor(Math.random() * 10000)}`);
+        
+        if (onClaimSubmitted) {
+            onClaimSubmitted({
+                claimId: "123", validationResponse: result, claimType: selectedClaimType, amount: claimAmount
+            });
+        }
+        setCurrentStep('submitted');
+        setIsSubmitting(false);
+    }, 1500);
   };
 
   const handleBack = () => {
@@ -243,110 +217,191 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
 
   return (
     <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl shadow-card-elevated max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-card border border-border rounded-2xl shadow-card-elevated max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+        
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center justify-between p-6 border-b border-border bg-muted/20">
           <div>
-            <h2 className="text-foreground">File New Claim</h2>
+            <h2 className="text-xl font-bold text-foreground">File New Claim</h2>
             {currentStep !== 'submitted' && <p className="text-sm text-muted-foreground mt-1">Step {getStepNumber()} of 4</p>}
           </div>
-          <button onClick={onClose}><X size={24} className="text-muted-foreground" /></button>
+          <button onClick={onClose}><X size={24} className="text-muted-foreground hover:text-foreground" /></button>
         </div>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-6">
           
-          {/* STEP 1: TYPE SELECTION */}
+          {/* STEP 1: TYPE & POLICY SELECTION */}
           {currentStep === 'type' && (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {claimTypes.map((type) => (
-                <button key={type.id} onClick={() => setSelectedClaimType(type.id)} 
-                  className={`p-6 rounded-xl border-2 text-left ${selectedClaimType === type.id ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}>
-                  <div className="text-4xl mb-3">{type.icon}</div>
-                  <h4 className="text-foreground">{type.label}</h4>
-                </button>
-              ))}
-            </div>
-          )}
+            <div className="space-y-6">
+                <div>
+                    <h3 className="text-sm font-medium mb-3">1. Select Claim Type</h3>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                    {claimTypes.map((type) => (
+                        <button key={type.id} onClick={() => { setSelectedClaimType(type.id); setSelectedPolicyId(''); }} 
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${selectedClaimType === type.id ? 'border-primary bg-primary/5 shadow-md' : 'border-border bg-card hover:border-primary/50'}`}>
+                        <div className="text-3xl mb-2">{type.icon}</div>
+                        <h4 className="font-semibold text-foreground">{type.label}</h4>
+                        </button>
+                    ))}
+                    </div>
+                </div>
 
-          {/* STEP 2: DUAL UPLOAD (THE MAIN LOGIC) */}
-          {currentStep === 'evidence' && (
-            <div className="space-y-8">
-              {/* Box A: Damage Photo (Visual AI) */}
-              <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-primary/30">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                   1. Upload {claimTypes.find(t => t.id === selectedClaimType)?.evidenceLabel}
-                   {isAnalyzing && <Loader2 className="animate-spin h-4 w-4"/>}
-                   {!isAnalyzing && prediction && (isEvidenceValid() ? <CheckCircle className="text-green-500 h-5 w-5"/> : <AlertTriangle className="text-red-500 h-5 w-5"/>)}
-                </h3>
-                <input type="file" accept="image/*" onChange={handleEvidenceSelect} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"/>
-                {prediction && (
-                    <p className={`text-xs mt-2 ${isEvidenceValid() ? 'text-green-600' : 'text-red-600'}`}>
-                        AI Detected: <b>{prediction}</b> ({(confidence * 100).toFixed(0)}%)
-                    </p>
-                )}
-              </div>
-
-              {/* Box B: Policy Doc (Backend Extraction) */}
-              <div className="bg-muted/30 p-4 rounded-xl border border-dashed border-blue-500/30">
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    2. Upload Policy Document
-                    {isExtractingData && <Loader2 className="animate-spin h-4 w-4"/>}
-                    {extractedPolicyData && <CheckCircle className="text-green-500 h-5 w-5"/>}
-                </h3>
-                <input type="file" accept="image/*,.pdf" onChange={handlePolicySelect} className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"/>
-                {extractedPolicyData && (
-                    <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                        Found Policy #: {extractedPolicyData.policyNumber || "Unknown"}
+                {selectedClaimType && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2">
+                        <h3 className="text-sm font-medium mb-2">2. Select Policy</h3>
+                        <div className="relative">
+                            <select 
+                                value={selectedPolicyId}
+                                onChange={(e) => setSelectedPolicyId(e.target.value)}
+                                className="w-full appearance-none bg-input-background border border-input rounded-xl px-4 py-3 pr-10 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                            >
+                                <option value="">-- Choose a Policy --</option>
+                                {MOCK_POLICIES[selectedClaimType]?.map((policy) => (
+                                    <option key={policy} value={policy}>{policy}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={18} />
+                        </div>
                     </div>
                 )}
+            </div>
+          )}
+
+          {/* STEP 2: DUAL UPLOAD */}
+          {currentStep === 'evidence' && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm border border-blue-100 dark:border-blue-900/30">
+                  <div className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded-full h-fit"><ScanEye className="text-blue-600 dark:text-blue-400 w-4 h-4" /></div>
+                  <div>
+                      <p className="font-semibold text-blue-900 dark:text-blue-200">AI Verification Active</p>
+                      <p className="text-blue-700 dark:text-blue-300">We analyze your evidence in real-time to speed up approval.</p>
+                  </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Box A: Damage Photo (Visual AI) */}
+                <div className={`p-6 rounded-xl border-2 border-dashed transition-all ${isEvidenceValid() ? 'border-border bg-muted/10' : 'border-red-300 bg-red-50 dark:bg-red-900/10'}`}>
+                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                        <Upload size={16} /> 
+                        {claimTypes.find(t => t.id === selectedClaimType)?.evidenceLabel}
+                        {isAnalyzing && <Loader2 className="animate-spin h-3 w-3 ml-auto text-primary"/>}
+                    </h3>
+                    
+                    <label className="cursor-pointer block">
+                        <input type="file" accept="image/*" onChange={handleEvidenceSelect} className="hidden"/>
+                        <div className="bg-background border border-border rounded-lg p-4 text-center hover:bg-muted transition-colors">
+                            {evidenceFile ? <span className="text-primary font-medium">{evidenceFile.name}</span> : <span className="text-muted-foreground">Click to upload</span>}
+                        </div>
+                    </label>
+
+                    {prediction && (
+                        <div className={`mt-3 p-2 rounded text-xs font-medium flex items-center gap-2 ${isEvidenceValid() ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                            {isEvidenceValid() ? <CheckCircle size={14}/> : <AlertTriangle size={14}/>}
+                            AI Detected: {prediction} ({(confidence * 100).toFixed(0)}%)
+                        </div>
+                    )}
+                </div>
+
+                {/* Box B: Policy Doc (Backend Extraction) */}
+                <div className="p-6 rounded-xl border-2 border-dashed border-border bg-muted/10">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                        <FileText size={16} /> 
+                        Policy Document
+                        {isExtractingData && <Loader2 className="animate-spin h-3 w-3 ml-auto text-primary"/>}
+                    </h3>
+                    
+                    <label className="cursor-pointer block">
+                        <input type="file" accept="image/*,.pdf" onChange={handlePolicySelect} className="hidden"/>
+                        <div className="bg-background border border-border rounded-lg p-4 text-center hover:bg-muted transition-colors">
+                             {policyFile ? <span className="text-blue-600 font-medium">{policyFile.name}</span> : <span className="text-muted-foreground">Click to upload</span>}
+                        </div>
+                    </label>
+
+                    {extractedPolicyData && (
+                        <div className="mt-3 p-2 rounded text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex items-center gap-2">
+                            <CheckCircle size={14}/>
+                            Data Extracted Successfully
+                        </div>
+                    )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* STEP 3: DETAILS (AUTO-FILLED) */}
+          {/* STEP 3: DETAILS */}
           {currentStep === 'details' && (
-            <div className="space-y-4">
-               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex gap-3 text-sm">
-                  <ScanEye className="text-blue-500 shrink-0" />
-                  <div>
-                    <p className="font-semibold">Auto-Filled by AI</p>
-                    <p className="text-muted-foreground">We extracted details from your uploaded documents.</p>
-                  </div>
+            <div className="space-y-5">
+               <div className="bg-muted p-4 rounded-xl mb-4">
+                 <h4 className="font-semibold text-sm mb-2">Claim Summary</h4>
+                 <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p className="text-muted-foreground">Type</p>
+                        <p>{claimTypes.find(t => t.id === selectedClaimType)?.label}</p>
+                    </div>
+                    <div>
+                        <p className="text-muted-foreground">Policy</p>
+                        <p>{selectedPolicyId}</p>
+                    </div>
+                 </div>
                </div>
 
                <div>
-                 <label className="block mb-2">Incident Date</label>
-                 <input type="date" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} className="w-full p-3 bg-input-background border rounded-lg"/>
+                 <label className="block text-sm font-medium mb-2">Incident Date</label>
+                 <input type="date" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} className="w-full p-3 bg-input-background border border-input rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"/>
                </div>
 
                <div>
-                 <label className="block mb-2">Description</label>
-                 <textarea rows={5} value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 bg-input-background border rounded-lg"/>
+                 <label className="block text-sm font-medium mb-2">Description</label>
+                 <textarea rows={4} value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 bg-input-background border border-input rounded-xl focus:ring-2 focus:ring-primary/20 outline-none resize-none" placeholder="Describe what happened..."/>
                </div>
 
                <div>
-                 <label className="block mb-2">Claim Amount</label>
-                 <input type="number" value={claimAmount} onChange={e => setClaimAmount(e.target.value)} className="w-full p-3 bg-input-background border rounded-lg" placeholder="0.00"/>
+                 <label className="block text-sm font-medium mb-2">Estimated Claim Amount (₹)</label>
+                 <input type="number" value={claimAmount} onChange={e => setClaimAmount(e.target.value)} className="w-full p-3 bg-input-background border border-input rounded-xl focus:ring-2 focus:ring-primary/20 outline-none" placeholder="0.00"/>
                </div>
             </div>
           )}
 
           {/* STEP 4: REVIEW */}
           {currentStep === 'review' && (
-             <div className="space-y-4 text-sm">
-                <div className="bg-muted p-4 rounded">Claim: {selectedClaimType}</div>
-                <div className="bg-muted p-4 rounded">Amount: ${claimAmount}</div>
-                <div className="bg-muted p-4 rounded">Status: Ready to Submit</div>
+             <div className="space-y-4">
+                <div className="p-6 bg-muted/30 rounded-xl border border-border text-center">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle size={32} className="text-primary"/>
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">Ready to Submit?</h3>
+                    <p className="text-muted-foreground">Please review your claim details before final submission.</p>
+                </div>
+
+                <div className="bg-card border border-border rounded-xl divide-y divide-border">
+                    <div className="p-4 flex justify-between">
+                        <span className="text-muted-foreground">Claim Type</span>
+                        <span className="font-medium">{claimTypes.find(t => t.id === selectedClaimType)?.label}</span>
+                    </div>
+                    <div className="p-4 flex justify-between">
+                        <span className="text-muted-foreground">Amount</span>
+                        <span className="font-bold text-lg">₹{claimAmount}</span>
+                    </div>
+                    {prediction && (
+                        <div className="p-4 flex justify-between bg-green-50 dark:bg-green-900/10">
+                            <span className="text-green-700 dark:text-green-400 font-medium">AI Validation</span>
+                            <span className="text-green-700 dark:text-green-400 font-bold">Passed ({prediction})</span>
+                        </div>
+                    )}
+                </div>
              </div>
           )}
 
           {/* STEP 5: SUBMITTED */}
           {currentStep === 'submitted' && (
-            <div className="text-center py-8">
-               <CheckCircle size={64} className="text-success mx-auto mb-4"/>
-               <h3>Claim Submitted!</h3>
-               <button onClick={onClose} className="mt-6 bg-primary text-white px-6 py-2 rounded">Close</button>
+            <div className="text-center py-12">
+               <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-in zoom-in spin-in-12 duration-500">
+                   <CheckCircle size={40} className="text-green-600 dark:text-green-400"/>
+               </div>
+               <h3 className="text-2xl font-bold mb-2">Claim Submitted!</h3>
+               <p className="text-muted-foreground mb-8">Your claim ID is <span className="font-mono text-foreground font-medium">{claimId}</span>.</p>
+               <button onClick={onClose} className="bg-primary text-primary-foreground px-8 py-3 rounded-xl hover:opacity-90 transition-opacity">Return to Dashboard</button>
             </div>
           )}
 
@@ -354,10 +409,16 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
 
         {/* Footer */}
         {currentStep !== 'submitted' && (
-          <div className="p-6 border-t flex justify-between">
-            <button onClick={handleBack} disabled={currentStep === 'type'} className="px-6 py-2 rounded hover:bg-muted">Back</button>
-            <button onClick={handleNext} disabled={isAnalyzing || isExtractingData} className="bg-primary text-white px-6 py-2 rounded">
-                {(isAnalyzing || isExtractingData) ? 'Processing...' : 'Next'}
+          <div className="p-6 border-t border-border bg-background flex justify-between">
+            <button onClick={handleBack} disabled={currentStep === 'type'} className="px-6 py-2.5 rounded-xl text-muted-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Back</button>
+            <button 
+                onClick={handleNext} 
+                disabled={isAnalyzing || isExtractingData || (currentStep === 'type' && !selectedPolicyId)} 
+                className="bg-primary text-primary-foreground px-8 py-2.5 rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+            >
+                {(isAnalyzing || isExtractingData) ? <Loader2 className="animate-spin" size={18}/> : null}
+                {currentStep === 'review' ? 'Submit Claim' : 'Next'}
+                {currentStep !== 'review' && <ArrowRight size={18} />}
             </button>
           </div>
         )}

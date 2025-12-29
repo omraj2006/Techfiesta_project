@@ -1,58 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as tmImage from '@teachablemachine/image';
 
-// ⚠️ IMPORTANT: REPLACE THIS with your specific URL from Teachable Machine
-// It must end with a trailing slash (e.g., .../model/)
-const MODEL_URL = "https://teachablemachine.withgoogle.com/models/DyNlyyYdq/";
+// ⚠️ REPLACE THIS WITH YOUR NEW TEACHABLE MACHINE LINK
+const MODEL_URL = "https://teachablemachine.withgoogle.com/models/r9l5gCcuY/";
 
-export const useImageClassifier = () => {
+export function useImageClassifier() {
+  const [model, setModel] = useState<tmImage.CustomMobileNet | null>(null);
   const [prediction, setPrediction] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number>(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
-  const classifyImage = async (imageFile: File) => {
+  useEffect(() => {
+    const loadModel = async () => {
+      try {
+        const modelURL = MODEL_URL + "model.json";
+        const metadataURL = MODEL_URL + "metadata.json";
+        const loadedModel = await tmImage.load(modelURL, metadataURL);
+        setModel(loadedModel);
+        console.log("✅ AI Model Loaded");
+      } catch (err) {
+        console.error("❌ Model load error", err);
+      }
+    };
+    loadModel();
+  }, []);
+
+  const classifyImage = async (file: File) => {
+    if (!model) return;
     setIsAnalyzing(true);
-    setError(null);
     
-    try {
-      // 1. Load the model and metadata
-      const modelURL = MODEL_URL + "model.json";
-      const metadataURL = MODEL_URL + "metadata.json";
-      
-      // Load the model (this downloads it from Google's servers)
-      const model = await tmImage.load(modelURL, metadataURL);
+    // Create an HTMLImageElement from the file
+    const img = document.createElement('img');
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+        img.src = e.target?.result as string;
+        img.onload = async () => {
+            const predictions = await model.predict(img);
+            // Sort to get highest probability
+            predictions.sort((a, b) => b.probability - a.probability);
+            
+            const bestClass = predictions[0].className;
+            const bestConf = predictions[0].probability;
 
-      // 2. Convert the uploaded File to an HTML Image Element
-      const imageElement = document.createElement('img');
-      imageElement.src = URL.createObjectURL(imageFile);
-
-      // Wait for the image to actually load into memory
-      await new Promise((resolve, reject) => {
-        imageElement.onload = resolve;
-        imageElement.onerror = reject;
-      });
-
-      // 3. Run the Prediction
-      const predictions = await model.predict(imageElement);
-      
-      // 4. Sort results to find the highest match
-      predictions.sort((a, b) => b.probability - a.probability);
-      const topResult = predictions[0];
-
-      // 5. Save the results
-      setPrediction(topResult.className); // e.g., "Vehicle Damage"
-      setConfidence(topResult.probability); // e.g., 0.98
-
-      console.log("AI Results:", predictions);
-
-    } catch (err) {
-      console.error("AI Error:", err);
-      setError("Failed to analyze image. Please try again.");
-    } finally {
-      setIsAnalyzing(false);
-    }
+            console.log(`🤖 AI Prediction: ${bestClass} (${(bestConf * 100).toFixed(1)}%)`);
+            
+            setPrediction(bestClass);
+            setConfidence(bestConf);
+            setIsAnalyzing(false);
+        }
+    };
+    reader.readAsDataURL(file);
   };
 
-  return { classifyImage, prediction, confidence, isAnalyzing, error };
-};
+  return { classifyImage, prediction, confidence, isAnalyzing };
+}

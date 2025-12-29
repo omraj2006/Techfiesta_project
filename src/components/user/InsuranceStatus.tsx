@@ -126,7 +126,7 @@ export function InsuranceStatus() {
             <IndianRupee size={20} className="text-primary" />
           </div>
           {/* MODIFIED: Changed to ₹ */}
-          <p className="text-2xl font-bold text-foreground">₹3.8M</p>
+          <p className="text-2xl font-bold text-foreground">₹5,00,000</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-4 shadow-card">

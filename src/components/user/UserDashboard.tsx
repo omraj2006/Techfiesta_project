@@ -101,8 +101,8 @@ export function UserDashboard({ onStartClaim, onViewClaim, onStartApplication }:
           <div className="bg-gradient-to-r from-accent/20 to-primary/20 border border-accent/30 rounded-2xl p-6">
             <div className="flex flex-col gap-4">
               <div>
-                <h3 className="text-foreground mb-2">Apply for Insurance</h3>
-                <p className="text-sm text-muted-foreground">Submit a new insurance application with auto-fill</p>
+                <h3 className="text-foreground mb-2">Submit a new Policy</h3>
+                <p className="text-sm text-muted-foreground">Submit a new Insurance application</p>
               </div>
               <button
                 onClick={onStartApplication}
