@@ -56,7 +56,7 @@ export function AdminLayout({ children, currentPage, onNavigate, onLogout }: Adm
                 <div className="bg-primary p-1.5 rounded-lg">
                   <Shield className="text-primary-foreground" size={20} />
                 </div>
-                <span className="font-semibold">SmartClaim</span>
+                <span className="font-semibold">SmartClaim AI</span>
               </div>
             )}
             <button
@@ -107,7 +107,7 @@ export function AdminLayout({ children, currentPage, onNavigate, onLogout }: Adm
               {isSidebarOpen && (
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">Admin User</p>
-                  <p className="text-caption text-muted-foreground truncate">admin@smartclaim.com</p>
+                  <p className="text-caption text-muted-foreground truncate">admin@smartclaim.ai</p>
                 </div>
               )}
             </div>

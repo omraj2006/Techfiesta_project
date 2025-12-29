@@ -27,12 +27,10 @@ interface ClaimData {
   issues?: string[];
 }
 
-// 👇 CHANGE 1: Define the props interface
 interface AdminAppProps {
   onLogout: () => void;
 }
 
-// 👇 CHANGE 2: Accept the prop here
 export function AdminApp({ onLogout }: AdminAppProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
@@ -132,7 +130,6 @@ export function AdminApp({ onLogout }: AdminAppProps) {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentPage('dashboard');
-    // 👇 CHANGE 3: Call the parent logout function
     onLogout();
   };
 
@@ -147,7 +144,8 @@ export function AdminApp({ onLogout }: AdminAppProps) {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <AdminDashboard />;
+        // 👇 UPDATED: Passing handleNavigate to the dashboard
+        return <AdminDashboard onNavigate={handleNavigate} />;
       case 'claims':
         return <ClaimsTable />;
       case 'claim-review':
@@ -172,7 +170,7 @@ export function AdminApp({ onLogout }: AdminAppProps) {
           </div>
         );
       default:
-        return <AdminDashboard />;
+        return <AdminDashboard onNavigate={handleNavigate} />;
     }
   };
 

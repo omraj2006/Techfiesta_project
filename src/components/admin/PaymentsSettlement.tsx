@@ -5,51 +5,52 @@ export function PaymentsSettlement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
+  // 👇 CHANGED: Indian Names & Payment Methods (UPI, NEFT)
   const payments = [
     {
       id: 'PAY-2024-1543',
       claimId: 'CLM-2024-8721',
-      userName: 'John Doe',
+      userName: 'Rahul Sharma',
       amount: 5250.0,
       status: 'processing',
-      method: 'Bank Transfer',
+      method: 'UPI Transfer',
       initiatedDate: 'Dec 10, 2024',
       completedDate: null,
     },
     {
       id: 'PAY-2024-1542',
       claimId: 'CLM-2024-8650',
-      userName: 'Jane Smith',
+      userName: 'Priya Singh',
       amount: 2100.0,
       status: 'pending',
-      method: 'Check',
+      method: 'NEFT',
       initiatedDate: 'Dec 9, 2024',
       completedDate: null,
     },
     {
       id: 'PAY-2024-1541',
       claimId: 'CLM-2024-8543',
-      userName: 'Robert Johnson',
+      userName: 'Amit Verma',
       amount: 8400.0,
       status: 'completed',
-      method: 'Bank Transfer',
+      method: 'IMPS',
       initiatedDate: 'Dec 1, 2024',
       completedDate: 'Dec 3, 2024',
     },
     {
       id: 'PAY-2024-1540',
       claimId: 'CLM-2024-8421',
-      userName: 'Sarah Williams',
+      userName: 'Sneha Gupta',
       amount: 3200.0,
       status: 'completed',
-      method: 'Bank Transfer',
+      method: 'UPI Transfer',
       initiatedDate: 'Nov 22, 2024',
       completedDate: 'Nov 24, 2024',
     },
     {
       id: 'PAY-2024-1539',
       claimId: 'CLM-2024-8354',
-      userName: 'Michael Brown',
+      userName: 'Vikram Malhotra',
       amount: 1850.0,
       status: 'completed',
       method: 'Direct Deposit',
@@ -103,17 +104,15 @@ export function PaymentsSettlement() {
   const stats = [
     {
       label: 'Total Paid',
-      // MODIFIED: Changed to ₹
-      value: `₹${totalPaid.toLocaleString()}`,
-      // MODIFIED: Changed DollarSign to IndianRupee
+      // 👇 CHANGED: Explicit 'en-IN' formatting
+      value: `₹${totalPaid.toLocaleString('en-IN')}`,
       icon: IndianRupee,
       color: 'text-success',
       bg: 'bg-success/10',
     },
     {
       label: 'Pending Payments',
-      // MODIFIED: Changed to ₹
-      value: `₹${totalPending.toLocaleString()}`,
+      value: `₹${totalPending.toLocaleString('en-IN')}`,
       icon: Clock,
       color: 'text-warning',
       bg: 'bg-warning/10',
@@ -159,7 +158,7 @@ export function PaymentsSettlement() {
                   <Icon size={24} className={stat.color} />
                 </div>
               </div>
-              <h3 className="text-foreground">{stat.value}</h3>
+              <h3 className="text-foreground text-2xl font-bold">{stat.value}</h3>
               <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
             </div>
           );
@@ -205,15 +204,15 @@ export function PaymentsSettlement() {
           <table className="w-full">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-left text-foreground">Payment ID</th>
-                <th className="px-6 py-4 text-left text-foreground">Claim ID</th>
-                <th className="px-6 py-4 text-left text-foreground">User</th>
-                <th className="px-6 py-4 text-left text-foreground">Amount</th>
-                <th className="px-6 py-4 text-left text-foreground">Method</th>
-                <th className="px-6 py-4 text-left text-foreground">Status</th>
-                <th className="px-6 py-4 text-left text-foreground">Initiated</th>
-                <th className="px-6 py-4 text-left text-foreground">Completed</th>
-                <th className="px-6 py-4 text-left text-foreground">Actions</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Payment ID</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Claim ID</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">User</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Amount</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Method</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Status</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Initiated</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Completed</th>
+                <th className="px-6 py-4 text-left text-foreground text-sm font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -222,32 +221,32 @@ export function PaymentsSettlement() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <CreditCard size={16} className="text-primary" />
-                      <span className="text-foreground">{payment.id}</span>
+                      <span className="text-foreground font-mono text-sm">{payment.id}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <button className="text-primary hover:underline">{payment.claimId}</button>
+                    <button className="text-primary hover:underline font-mono text-sm">{payment.claimId}</button>
                   </td>
-                  <td className="px-6 py-4 text-foreground">{payment.userName}</td>
+                  <td className="px-6 py-4 text-foreground font-medium">{payment.userName}</td>
                   <td className="px-6 py-4">
-                    {/* MODIFIED: Changed to ₹ */}
-                    <span className="text-foreground">₹{payment.amount.toLocaleString()}</span>
+                    {/* 👇 CHANGED: Explicit 'en-IN' formatting */}
+                    <span className="text-foreground font-semibold">₹{payment.amount.toLocaleString('en-IN')}</span>
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{payment.method}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {getStatusIcon(payment.status)}
-                      <span className={`px-3 py-1 rounded-full text-sm capitalize ${getStatusColor(payment.status)}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(payment.status)}`}>
                         {payment.status}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-muted-foreground">{payment.initiatedDate}</td>
-                  <td className="px-6 py-4 text-muted-foreground">
+                  <td className="px-6 py-4 text-muted-foreground text-sm">{payment.initiatedDate}</td>
+                  <td className="px-6 py-4 text-muted-foreground text-sm">
                     {payment.completedDate || '-'}
                   </td>
                   <td className="px-6 py-4">
-                    <button className="text-primary hover:underline flex items-center gap-1">
+                    <button className="text-primary hover:underline flex items-center gap-1 text-sm font-medium">
                       View
                       <ArrowUpRight size={14} />
                     </button>
@@ -266,34 +265,33 @@ export function PaymentsSettlement() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <CreditCard size={16} className="text-primary" />
-                    <span className="text-foreground">{payment.id}</span>
+                    <span className="text-foreground font-mono text-sm font-medium">{payment.id}</span>
                   </div>
-                  <button className="text-sm text-primary hover:underline">{payment.claimId}</button>
+                  <button className="text-xs text-primary hover:underline font-mono">{payment.claimId}</button>
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusIcon(payment.status)}
-                  <span className={`px-2 py-1 rounded-full text-xs capitalize ${getStatusColor(payment.status)}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(payment.status)}`}>
                     {payment.status}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">User</p>
-                  <p className="text-foreground">{payment.userName}</p>
+                  <p className="text-muted-foreground text-xs mb-1">User</p>
+                  <p className="text-foreground font-medium">{payment.userName}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Amount</p>
-                  {/* MODIFIED: Changed to ₹ */}
-                  <p className="text-foreground">₹{payment.amount.toLocaleString()}</p>
+                  <p className="text-muted-foreground text-xs mb-1">Amount</p>
+                  <p className="text-foreground font-bold">₹{payment.amount.toLocaleString('en-IN')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Method</p>
+                  <p className="text-muted-foreground text-xs mb-1">Method</p>
                   <p className="text-foreground">{payment.method}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Initiated</p>
+                  <p className="text-muted-foreground text-xs mb-1">Initiated</p>
                   <p className="text-foreground">{payment.initiatedDate}</p>
                 </div>
               </div>

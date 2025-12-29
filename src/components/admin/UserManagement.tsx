@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Search, Filter, UserPlus, Edit, Trash2, Shield, CheckCircle, XCircle, MoreVertical } from 'lucide-react';
+import { Search, Filter, UserPlus, Edit, Trash2, Shield, CheckCircle, XCircle, MoreVertical, MapPin } from 'lucide-react';
 
 export function UserManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
+  // 👇 CHANGED: Indian Names, Numbers, and added Location
   const users = [
     {
       id: 1,
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      phone: '+1 (555) 123-4567',
+      name: 'Rajesh Kumar',
+      email: 'rajesh.kumar@example.com',
+      phone: '+91 98765 43210',
+      location: 'Mumbai, MH',
       status: 'active',
       verified: true,
       claimsCount: 12,
@@ -19,9 +21,10 @@ export function UserManagement() {
     },
     {
       id: 2,
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      phone: '+1 (555) 234-5678',
+      name: 'Priya Sharma',
+      email: 'priya.sharma@example.com',
+      phone: '+91 91234 56789',
+      location: 'Delhi, DL',
       status: 'active',
       verified: true,
       claimsCount: 8,
@@ -30,9 +33,10 @@ export function UserManagement() {
     },
     {
       id: 3,
-      name: 'Robert Johnson',
-      email: 'robert.j@example.com',
-      phone: '+1 (555) 345-6789',
+      name: 'Amit Patel',
+      email: 'amit.patel@example.com',
+      phone: '+91 99887 76655',
+      location: 'Ahmedabad, GJ',
       status: 'pending',
       verified: false,
       claimsCount: 2,
@@ -41,9 +45,10 @@ export function UserManagement() {
     },
     {
       id: 4,
-      name: 'Sarah Williams',
-      email: 'sarah.w@example.com',
-      phone: '+1 (555) 456-7890',
+      name: 'Sneha Gupta',
+      email: 'sneha.gupta@example.com',
+      phone: '+91 88776 65544',
+      location: 'Bangalore, KA',
       status: 'active',
       verified: true,
       claimsCount: 15,
@@ -52,14 +57,27 @@ export function UserManagement() {
     },
     {
       id: 5,
-      name: 'Michael Brown',
-      email: 'michael.b@example.com',
-      phone: '+1 (555) 567-8901',
+      name: 'Vikram Singh',
+      email: 'vikram.singh@example.com',
+      phone: '+91 77665 54433',
+      location: 'Jaipur, RJ',
       status: 'suspended',
       verified: true,
       claimsCount: 3,
       joinedDate: 'Aug 5, 2023',
       lastActive: '2 weeks ago',
+    },
+    {
+      id: 6,
+      name: 'Anjali Das',
+      email: 'anjali.das@example.com',
+      phone: '+91 98321 65498',
+      location: 'Kolkata, WB',
+      status: 'active',
+      verified: true,
+      claimsCount: 5,
+      joinedDate: 'Sep 12, 2023',
+      lastActive: '10 mins ago',
     },
   ];
 
@@ -95,7 +113,7 @@ export function UserManagement() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -113,7 +131,7 @@ export function UserManagement() {
         {stats.map((stat, index) => (
           <div key={index} className="bg-card border border-border rounded-xl p-6 shadow-card">
             <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-            <h3 className={stat.color}>{stat.value}</h3>
+            <h3 className={`text-2xl font-bold ${stat.color}`}>{stat.value}</h3>
           </div>
         ))}
       </div>
@@ -157,67 +175,68 @@ export function UserManagement() {
           <table className="w-full">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
-                <th className="px-6 py-4 text-left text-foreground">User</th>
-                <th className="px-6 py-4 text-left text-foreground">Contact</th>
-                <th className="px-6 py-4 text-left text-foreground">Status</th>
-                <th className="px-6 py-4 text-left text-foreground">Verified</th>
-                <th className="px-6 py-4 text-left text-foreground">Claims</th>
-                <th className="px-6 py-4 text-left text-foreground">Joined</th>
-                <th className="px-6 py-4 text-left text-foreground">Last Active</th>
-                <th className="px-6 py-4 text-left text-foreground">Actions</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">User Details</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">Contact Info</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">Status</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">KYC Verified</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">Claims</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">Last Active</th>
+                <th className="px-6 py-4 text-left text-foreground font-medium text-sm">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-muted/30 transition-colors">
+                <tr key={user.id} className="hover:bg-muted/30 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
-                        <span className="text-sm text-white">
-                          {user.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')}
+                      <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-white">
+                          {user.name.split(' ').map((n) => n[0]).join('')}
                         </span>
                       </div>
                       <div>
-                        <p className="text-foreground">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">ID: {user.id}</p>
+                        <p className="text-foreground font-medium">{user.name}</p>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin size={10} /> {user.location}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-foreground">{user.email}</p>
-                    <p className="text-sm text-muted-foreground">{user.phone}</p>
+                    <p className="text-foreground text-sm">{user.email}</p>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{user.phone}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-sm capitalize ${getStatusColor(user.status)}`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize border border-transparent ${getStatusColor(user.status)}`}>
                       {user.status}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     {user.verified ? (
-                      <div className="flex items-center gap-2 text-success">
-                        <CheckCircle size={18} />
-                        <span className="text-sm">Verified</span>
+                      <div className="flex items-center gap-1.5 text-success">
+                        <CheckCircle size={16} />
+                        <span className="text-sm font-medium">Verified</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-warning">
-                        <XCircle size={18} />
-                        <span className="text-sm">Pending</span>
+                      <div className="flex items-center gap-1.5 text-warning">
+                        <XCircle size={16} />
+                        <span className="text-sm font-medium">Pending</span>
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-foreground">{user.claimsCount}</td>
-                  <td className="px-6 py-4 text-muted-foreground">{user.joinedDate}</td>
-                  <td className="px-6 py-4 text-muted-foreground">{user.lastActive}</td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-muted rounded-lg transition-colors" title="Edit user">
-                        <Edit size={18} className="text-primary" />
+                    <span className="inline-flex items-center justify-center w-8 h-6 bg-muted rounded text-xs font-medium text-foreground">
+                      {user.claimsCount}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-muted-foreground text-sm">{user.lastActive}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-1.5 hover:bg-primary/10 text-primary rounded-md transition-colors" title="Edit user">
+                        <Edit size={16} />
                       </button>
-                      <button className="p-2 hover:bg-destructive/10 rounded-lg transition-colors" title="Delete user">
-                        <Trash2 size={18} className="text-destructive" />
+                      <button className="p-1.5 hover:bg-destructive/10 text-destructive rounded-md transition-colors" title="Delete user">
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -234,16 +253,13 @@ export function UserManagement() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
-                    <span className="text-white">
-                      {user.name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')}
+                    <span className="text-white font-bold">
+                      {user.name.split(' ').map((n) => n[0]).join('')}
                     </span>
                   </div>
                   <div>
-                    <p className="text-foreground">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="text-foreground font-medium">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.location}</p>
                   </div>
                 </div>
                 <button className="p-2 hover:bg-muted rounded-lg transition-colors">
@@ -251,28 +267,28 @@ export function UserManagement() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-2 gap-y-3 gap-x-4 mb-3 text-sm">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Status</p>
-                  <span className={`px-2 py-1 rounded-full text-xs capitalize ${getStatusColor(user.status)}`}>
+                  <p className="text-muted-foreground text-xs mb-1">Status</p>
+                  <span className={`px-2 py-0.5 rounded text-xs capitalize ${getStatusColor(user.status)}`}>
                     {user.status}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Verified</p>
+                  <p className="text-muted-foreground text-xs mb-1">Contact</p>
+                  <p className="text-foreground text-xs truncate">{user.phone}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">KYC</p>
                   {user.verified ? (
-                    <CheckCircle size={18} className="text-success" />
+                    <span className="text-success text-xs flex items-center gap-1"><CheckCircle size={12}/> Verified</span>
                   ) : (
-                    <XCircle size={18} className="text-warning" />
+                    <span className="text-warning text-xs flex items-center gap-1"><XCircle size={12}/> Pending</span>
                   )}
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Claims</p>
+                  <p className="text-muted-foreground text-xs mb-1">Claims</p>
                   <p className="text-foreground">{user.claimsCount}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Joined</p>
-                  <p className="text-foreground">{user.joinedDate}</p>
                 </div>
               </div>
             </div>

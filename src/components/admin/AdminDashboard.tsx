@@ -11,9 +11,15 @@ import {
   AlertTriangle,
   ArrowUpRight
 } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-export function AdminDashboard() {
+// 👇 CHANGE 1: Define Props Interface
+interface AdminDashboardProps {
+  onNavigate?: (page: string) => void;
+}
+
+// 👇 CHANGE 2: Accept the prop
+export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const kpis = [
     {
       title: 'Total Claims',
@@ -97,11 +103,11 @@ export function AdminDashboard() {
   ];
 
   const recentClaims = [
-    { id: 'CLM-2024-1234', user: 'John Doe', type: 'Auto Insurance', amount: '$5,250', status: 'approved', time: '5 mins ago' },
-    { id: 'CLM-2024-1235', user: 'Sarah Smith', type: 'Home Insurance', amount: '$12,400', status: 'pending', time: '12 mins ago' },
-    { id: 'CLM-2024-1236', user: 'Mike Johnson', type: 'Health Insurance', amount: '$8,750', status: 'pending', time: '23 mins ago' },
-    { id: 'CLM-2024-1237', user: 'Emily Brown', type: 'Auto Insurance', amount: '$3,200', status: 'approved', time: '35 mins ago' },
-    { id: 'CLM-2024-1238', user: 'David Wilson', type: 'Life Insurance', amount: '$25,000', status: 'rejected', time: '42 mins ago' }
+    { id: 'CLM-2024-1234', user: 'John Doe', type: 'Auto Insurance', amount: '₹5,250', status: 'approved', time: '35 mins ago' },
+    { id: 'CLM-2024-1235', user: 'Sarah Smith', type: 'Home Insurance', amount: '₹12,400', status: 'pending', time: '12 days ago' },
+    { id: 'CLM-2024-1236', user: 'Mike Johnson', type: 'Health Insurance', amount: '₹8,750', status: 'pending', time: '23 days ago' },
+    { id: 'CLM-2024-1237', user: 'Emily Brown', type: 'Auto Insurance', amount: '₹3,200', status: 'approved', time: '35 days ago' },
+    { id: 'CLM-2024-1238', user: 'David Wilson', type: 'Life Insurance', amount: '₹25,000', status: 'rejected', time: '42 days ago' }
   ];
 
   return (
@@ -116,7 +122,12 @@ export function AdminDashboard() {
           <button className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg transition-all hover:bg-accent hover:text-accent-foreground border border-border">
             Export Report
           </button>
-          <button className="bg-primary text-primary-foreground px-4 py-2 rounded-lg transition-all hover:opacity-90">
+          
+          {/* 👇 CHANGE 3: Add onClick Handler */}
+          <button 
+            onClick={() => onNavigate && onNavigate('claims')}
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-lg transition-all hover:opacity-90"
+          >
             View All Claims
           </button>
         </div>
@@ -228,7 +239,12 @@ export function AdminDashboard() {
             <h3>Recent Claims</h3>
             <p className="text-caption text-muted-foreground mt-1">Latest claim submissions</p>
           </div>
-          <button className="text-primary hover:underline flex items-center gap-1">
+          
+          {/* 👇 CHANGE 4: Add onClick Handler here too */}
+          <button 
+            onClick={() => onNavigate && onNavigate('claims')}
+            className="text-primary hover:underline flex items-center gap-1"
+          >
             View All
             <ArrowUpRight size={16} />
           </button>
