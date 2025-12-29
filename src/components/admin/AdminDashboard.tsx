@@ -101,13 +101,13 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     { name: 'Pending', value: 156, color: '#f59e0b' },
     { name: 'Rejected', value: 111, color: '#ef4444' }
   ];
-
+  
   const recentClaims = [
-    { id: 'CLM-2024-1234', user: 'John Doe', type: 'Auto Insurance', amount: '₹5,250', status: 'approved', time: '35 mins ago' },
-    { id: 'CLM-2024-1235', user: 'Sarah Smith', type: 'Home Insurance', amount: '₹12,400', status: 'pending', time: '12 days ago' },
-    { id: 'CLM-2024-1236', user: 'Mike Johnson', type: 'Health Insurance', amount: '₹8,750', status: 'pending', time: '23 days ago' },
-    { id: 'CLM-2024-1237', user: 'Emily Brown', type: 'Auto Insurance', amount: '₹3,200', status: 'approved', time: '35 days ago' },
-    { id: 'CLM-2024-1238', user: 'David Wilson', type: 'Life Insurance', amount: '₹25,000', status: 'rejected', time: '42 days ago' }
+    { id: 'CLM-2024-1234', user: 'Anjali Mehta', type: 'Auto Insurance', amount: '₹5,250', status: 'approved', time: '35 mins ago' },
+    { id: 'CLM-2024-1235', user: 'Rajesh Kumar', type: 'Home Insurance', amount: '₹12,400', status: 'pending', time: '12 days ago' },
+    { id: 'CLM-2024-1236', user: 'Vikram Singh', type: 'Health Insurance', amount: '₹8,750', status: 'pending', time: '23 days ago' },
+    { id: 'CLM-2024-1237', user: 'Priya Gupta', type: 'Auto Insurance', amount: '₹3,200', status: 'approved', time: '35 days ago' },
+    { id: 'CLM-2024-1238', user: 'Arjun Reddy', type: 'Life Insurance', amount: '₹25,000', status: 'rejected', time: '42 days ago' }
   ];
 
   return (

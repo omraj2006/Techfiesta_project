@@ -20,15 +20,15 @@ export function ClaimsTable() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
-  // Enhanced Mock Data with AI Risk Scores
+  
   const claims: Claim[] = [
-    { id: 'CLM-2024-1235', user: 'Sarah Smith', email: 'sarah@example.com', type: 'Home Insurance', policyNumber: 'POL-123789', amount: 12400, status: 'pending', priority: 'high', submitDate: '2024-12-15', lastUpdate: 'Today 09:45', aiRiskScore: 85 },
-    { id: 'CLM-2024-1236', user: 'Mike Johnson', email: 'mike@example.com', type: 'Health Insurance', policyNumber: 'POL-456123', amount: 8750, status: 'review', priority: 'high', submitDate: '2024-12-15', lastUpdate: 'Today 09:12', aiRiskScore: 65 },
-    { id: 'CLM-2024-1240', user: 'Robert Taylor', email: 'robert@example.com', type: 'Auto Insurance', policyNumber: 'POL-852369', amount: 4500, status: 'review', priority: 'medium', submitDate: '2024-12-15', lastUpdate: 'Today 07:48', aiRiskScore: 45 },
-    { id: 'CLM-2024-1242', user: 'William Garcia', email: 'william@example.com', type: 'Health Insurance', policyNumber: 'POL-963852', amount: 6300, status: 'pending', priority: 'medium', submitDate: '2024-12-15', lastUpdate: 'Today 06:59', aiRiskScore: 30 },
-    { id: 'CLM-2024-1234', user: 'John Doe', email: 'john@example.com', type: 'Auto Insurance', policyNumber: 'POL-789456', amount: 5250, status: 'approved', priority: 'medium', submitDate: '2024-12-14', lastUpdate: 'Yesterday', aiRiskScore: 10 },
-    { id: 'CLM-2024-1237', user: 'Emily Brown', email: 'emily@example.com', type: 'Auto Insurance', policyNumber: 'POL-987654', amount: 3200, status: 'approved', priority: 'low', submitDate: '2024-12-14', lastUpdate: 'Yesterday', aiRiskScore: 5 },
-    { id: 'CLM-2024-1238', user: 'David Wilson', email: 'david@example.com', type: 'Life Insurance', policyNumber: 'POL-321654', amount: 25000, status: 'rejected', priority: 'medium', submitDate: '2024-12-13', lastUpdate: '2 Days Ago', aiRiskScore: 92 },
+    { id: 'CLM-2024-1235', user: 'Anjali Mehta', email: 'anjali.mehta@example.com', type: 'Home Insurance', policyNumber: 'POL-123789', amount: 12400, status: 'pending', priority: 'high', submitDate: '2024-12-15', lastUpdate: 'Today 09:45', aiRiskScore: 85 },
+    { id: 'CLM-2024-1236', user: 'Rajesh Kumar', email: 'rajesh.kumar@example.com', type: 'Health Insurance', policyNumber: 'POL-456123', amount: 8750, status: 'review', priority: 'high', submitDate: '2024-12-15', lastUpdate: 'Today 09:12', aiRiskScore: 65 },
+    { id: 'CLM-2024-1240', user: 'Vikram Singh', email: 'vikram.singh@example.com', type: 'Auto Insurance', policyNumber: 'POL-852369', amount: 4500, status: 'review', priority: 'medium', submitDate: '2024-12-15', lastUpdate: 'Today 07:48', aiRiskScore: 45 },
+    { id: 'CLM-2024-1242', user: 'Amit Patel', email: 'amit.patel@example.com', type: 'Health Insurance', policyNumber: 'POL-963852', amount: 6300, status: 'pending', priority: 'medium', submitDate: '2024-12-15', lastUpdate: 'Today 06:59', aiRiskScore: 30 },
+    { id: 'CLM-2024-1234', user: 'Rahul Sharma', email: 'rahul.sharma@example.com', type: 'Auto Insurance', policyNumber: 'POL-789456', amount: 5250, status: 'approved', priority: 'medium', submitDate: '2024-12-14', lastUpdate: 'Yesterday', aiRiskScore: 10 },
+    { id: 'CLM-2024-1237', user: 'Priya Gupta', email: 'priya.gupta@example.com', type: 'Auto Insurance', policyNumber: 'POL-987654', amount: 3200, status: 'approved', priority: 'low', submitDate: '2024-12-14', lastUpdate: 'Yesterday', aiRiskScore: 5 },
+    { id: 'CLM-2024-1238', user: 'Arjun Reddy', email: 'arjun.reddy@example.com', type: 'Life Insurance', policyNumber: 'POL-321654', amount: 25000, status: 'rejected', priority: 'medium', submitDate: '2024-12-13', lastUpdate: '2 Days Ago', aiRiskScore: 92 },
   ];
 
   const getStatusIcon = (status: string) => {
