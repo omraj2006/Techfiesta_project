@@ -30,7 +30,7 @@ export function ClaimHistory({ claimsData = [], onViewClaim }: ClaimHistoryProps
       statusType: 'warning',
       // MODIFIED: Changed to ₹
       amount: '₹5,250',
-      date: 'Dec 10, 2024',
+      date: 'Dec 23, 2024',
       description: 'Rear bumper damage from parking incident',
     },
     {
