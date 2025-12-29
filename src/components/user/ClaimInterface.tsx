@@ -60,7 +60,6 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         id: 'vehicle', 
         label: 'Auto Insurance', 
         icon: '🚗', 
-        // UPDATED: Matches "damage_vehicle" or "damage-vehicle"
         aiClass: 'damage_vehicle', 
         evidenceLabel: 'Car Damage Photo',
         endpoint: '/validate-vehicle' 
@@ -69,7 +68,6 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
         id: 'home', 
         label: 'Home Insurance', 
         icon: '🏠', 
-        // UPDATED: Matches "damage_home" or "damage-home"
         aiClass: 'damage_home', 
         evidenceLabel: 'Home Damage Photo',
         endpoint: '/validate-home' 
@@ -105,52 +103,88 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
     }
   };
 
-  // --- 2. HANDLE POLICY UPLOAD ---
+  // --- 2. HANDLE POLICY UPLOAD (REAL BACKEND INTEGRATION) ---
   const handlePolicySelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setPolicyFile(file);
       setIsExtractingData(true);
       
-      // Simulating Backend Extraction
-      setTimeout(() => {
-          const mockData = {
-              success: true,
-              data: {
-                  policyNumber: selectedPolicyId,
-                  extractedText: "Policy Holder: John Doe. Valid till 2025.",
-                  sumInsuredVal: 50000
-              }
-          };
-          setExtractedPolicyData(mockData.data);
-          setDescription(`Claim verified by AI.\nPolicy #: ${mockData.data.policyNumber}`);
-          if(!claimAmount) setClaimAmount(mockData.data.sumInsuredVal.toString());
+      try {
+        const selectedType = claimTypes.find(t => t.id === selectedClaimType);
+        if (!selectedType) {
+            alert("Please select a claim type first.");
+            setIsExtractingData(false);
+            return;
+        }
+
+        console.log(`📡 Uploading to: http://localhost:3000${selectedType.endpoint}`);
+
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('amount', '0'); // Default placeholder for the backend
+
+        // 🚀 REAL API CALL
+        const response = await fetch(`http://localhost:3000${selectedType.endpoint}`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        const result = await response.json();
+        console.log("✅ OCR Result:", result);
+
+        if (result.success && result.data) {
+            setExtractedPolicyData(result.data);
+            
+            // Auto-Fill Form Logic
+            let aiDesc = `Claim verified via OCR.\n`;
+            if (result.data.policyNumber) aiDesc += `Policy #: ${result.data.policyNumber}\n`;
+            if (result.data.extractedText) aiDesc += `\nSnippet: ${result.data.extractedText.substring(0, 100)}...`;
+            
+            setDescription(aiDesc);
+
+            // Check for any of the possible amount fields
+            const extractedAmount = result.data.sumInsuredVal || result.data.idvVal || result.data.sumAssuredVal;
+            
+            if (extractedAmount && extractedAmount > 0) {
+                setClaimAmount(extractedAmount.toString());
+            }
+
+            // If backend found a policy number, try to set it
+            if (result.data.policyNumber) {
+                // In a real app, you might validate if this policy belongs to the user
+                console.log("AI Found Policy:", result.data.policyNumber);
+            }
+
+        } else {
+            alert("Backend could not extract data. Please ensure the image is clear.");
+        }
+
+      } catch (err) {
+          console.error("❌ OCR Error:", err);
+          alert("Could not connect to OCR Server. Is 'npm run server' running?");
+      } finally {
           setIsExtractingData(false);
-      }, 1500);
+      }
     }
   };
 
   // --- FIXED VALIDATION HELPER ---
   const isEvidenceValid = () => {
-    // 1. Safety check
     if (!prediction) return true;
     
     const selectedType = claimTypes.find(t => t.id === selectedClaimType);
     const expectedClass = selectedType?.aiClass;
     
-    // 2. If this claim type doesn't use AI (Health/Life), it's valid
     if (!expectedClass) return true;
 
-    // 3. Normalize strings (remove _ - and make lowercase)
     const cleanPred = prediction.toLowerCase().replace(/[-_ ]/g, '');
     const cleanExp = expectedClass.toLowerCase().replace(/[-_ ]/g, '');
 
-    // 4. Check for explicit mismatch keywords
     if (cleanPred.includes('nonvehicle') || cleanPred.includes('nonhome')) {
         return false;
     }
     
-    // 5. Fuzzy Match (e.g., "damagehome" contains "damagehome")
     return cleanPred.includes(cleanExp) || cleanExp.includes(cleanPred);
   };
 
@@ -166,7 +200,6 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
             return;
         }
         
-        // AI Guardrail
         if (!isAnalyzing && prediction && !isEvidenceValid()) {
              const lbl = claimTypes.find(t => t.id === selectedClaimType)?.label;
              alert(`⚠️ Mismatch! You chose ${lbl}, but AI detected "${prediction}". Please upload a valid photo.`);
@@ -185,23 +218,52 @@ export function ClaimInterface({ onClose, onClaimSubmitted }: ClaimInterfaceProp
 
   const submitClaimToBackend = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
+    
+    try {
+        const response = await fetch('http://localhost:3000/submit-claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userName: "Current User", // In a real app, get this from Auth Context
+                claimType: selectedClaimType,
+                policyId: selectedPolicyId,
+                amount: claimAmount,
+                incidentDate: incidentDate,
+                description: description,
+                validationStatus: isEvidenceValid() ? 'APPROVED' : 'MANUAL_REVIEW',
+                aiPrediction: prediction,
+                extractedData: extractedPolicyData
+            })
+        });
+
+        const resultBackend = await response.json();
+        console.log("✅ Submission Result:", resultBackend);
+
         const result: ValidationResponse = {
             success: true,
             validation: { status: 'APPROVED', issues: [] },
             data: { ai_tag: prediction, confidence: confidence }
         };
+        
         setValidationResponse(result);
-        setClaimId(`#CLM-${Math.floor(Math.random() * 10000)}`);
+        // Use ID from backend if available, or fallback
+        setClaimId(resultBackend.claim?.id || `#CLM-${Math.floor(Math.random() * 10000)}`);
         
         if (onClaimSubmitted) {
             onClaimSubmitted({
-                claimId: "123", validationResponse: result, claimType: selectedClaimType, amount: claimAmount
+                claimId: resultBackend.claim?.id || "123", 
+                validationResponse: result, 
+                claimType: selectedClaimType, 
+                amount: claimAmount
             });
         }
         setCurrentStep('submitted');
+    } catch (error) {
+        console.error("❌ Submission Failed:", error);
+        alert("Failed to submit claim. Check console for details.");
+    } finally {
         setIsSubmitting(false);
-    }, 1500);
+    }
   };
 
   const handleBack = () => {
